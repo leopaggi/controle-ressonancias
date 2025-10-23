@@ -1,4 +1,4 @@
-// Configuração do Firebase - USE ESTAS CREDENCIAIS
+// Configuração SIMPLES do Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyDsDJ5w4yLYRGqZAmibjbwvwYnOusELPzI",
     authDomain: "controle-ressonancias-leo.firebaseapp.com",
@@ -8,11 +8,12 @@ const firebaseConfig = {
     appId: "1:938712929681:web:fb4d415ae39ef48862b630"
 };
 
-// Inicializar Firebase
-try {
+// Verificar se já existe app
+if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    console.log("✅ NOVO FIREBASE CONFIGURADO COM SUCESSO!");
-} catch (error) {
-    console.error("❌ Erro:", error);
+} else {
+    firebase.app(); // usar app existente
 }
+
+const db = firebase.firestore();
+console.log("✅ Firebase configurado. ProjectID:", firebaseConfig.projectId);

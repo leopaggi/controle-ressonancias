@@ -1,18 +1,18 @@
-// Configuração do Firebase
+// Configuração do Firebase - USE ESTAS CREDENCIAIS
 const firebaseConfig = {
-    apiKey: "AIzaSyDy_fCZtSVLPFZCJ16Tcxuy1zTWWUugw",
-    authDomain: "controle-ressonancias.firebaseapp.com",
-    projectId: "controle-ressonancias",
-    storageBucket: "controle-ressonancias.firebasestorage.app",
-    messagingSenderId: "524319674926",
-    appId: "1:524319674926:web:baba3dc9d1428e4c858ad3"
+    apiKey: "AIzaSyDsDJ5w4yLYRGqZAmibjbwvwYnOusELPzI",
+    authDomain: "controle-ressonancias-leo.firebaseapp.com",
+    projectId: "controle-ressonancias-leo",
+    storageBucket: "controle-ressonancias-leo.firebasestorage.app",
+    messagingSenderId: "938712929681",
+    appId: "1:938712929681:web:fb4d415ae39ef48862b630"
 };
 
 // Inicializar Firebase
 try {
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    console.log("✅ Firebase configurado com sucesso!");
+    console.log("✅ NOVO FIREBASE CONFIGURADO COM SUCESSO!");
 } catch (error) {
-    console.error("❌ Erro ao configurar Firebase:", error);
+    console.error("❌ Erro:", error);
 }

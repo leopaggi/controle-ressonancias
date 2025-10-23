@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle de Estudos de Ressonância</title>
     
-    <!-- FIREBASE - APENAS ESTES DOIS SCRIPTS -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <!-- REMOVA os scripts do Firebase -->
+    <!-- <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script> -->
+    <!-- <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script> -->
     
     <style>
-        /* [COLE AQUI TODO O SEU CSS] */
+        /* [COLE AQUI TODO O SEU CSS ORIGINAL] */
         body {
             font-family: Arial, sans-serif;
             max-width: 1400px;
@@ -26,12 +26,11 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
-        /* ... resto do seu CSS ... */
+        /* ... resto do CSS ... */
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- [COLE AQUI TODO O SEU HTML] -->
         <h1>📊 Controle de Estudos de Ressonância</h1>
         
         <div class="tabs">
@@ -43,8 +42,7 @@
         <!-- ... resto do seu HTML ... -->
     </div>
 
-    <!-- SCRIPTS NO FINAL - NA ORDEM CORRETA -->
-    <script src="firebase-config.js"></script>
+    <!-- SCRIPTS - SEM Firebase -->
     <script src="app.js"></script>
 </body>
 </html>

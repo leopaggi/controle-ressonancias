@@ -1,23 +1,15 @@
-// Configuração do Firebase - USE SUAS CONFIGURAÇÕES AQUI!
+// Configuração do Firebase - USE SUAS CONFIGURAÇÕES
 const firebaseConfig = {
-    apiKey: "SUA_API_KEY_AQUI",
-    authDomain: "SEU_AUTH_DOMAIN_AQUI", 
-    projectId: "SEU_PROJECT_ID_AQUI",
-    storageBucket: "SEU_STORAGE_BUCKET_AQUI",
-    messagingSenderId: "SEU_SENDER_ID_AQUI",
-    appId: "SEU_APP_ID_AQUI"
+    apiKey: "AIzaSyDy_fCZtSVLPFZCJ16Tcxuy1zTWWUugw",
+    authDomain: "controle-ressonancias.firebaseapp.com",
+    projectId: "controle-ressonancias",
+    storageBucket: "controle-ressonancias.firebasestorage.app",
+    messagingSenderId: "524319674926",
+    appId: "1:524319674926:web:baba3dc9d1428e4c858ad3"
 };
 
 // Inicializar Firebase
-try {
-    firebase.initializeApp(firebaseConfig);
-    console.log("✅ Firebase conectado com sucesso!");
-} catch (error) {
-    console.error("❌ Erro ao conectar Firebase:", error);
-}
-
-// Referência do Firestore
+firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// Agora você pode usar o Firebase sem login!
-console.log("Firestore pronto para uso!");
+console.log("✅ Firebase configurado!");

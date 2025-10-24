@@ -588,8 +588,9 @@
         }
 
         function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('pt-BR');
+            // CORREÇÃO: Usa a data diretamente sem conversão de fuso
+            const [year, month, day] = dateString.split('-');
+            return `${day}/${month}/${year}`;
         }
 
         // EVENTO DE SUBMIT DO FORMULÁRIO

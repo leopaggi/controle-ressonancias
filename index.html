@@ -79,6 +79,25 @@
         
         th {
             background-color: #e9ecef;
+            cursor: pointer;
+            position: relative;
+            user-select: none;
+        }
+        
+        th:hover {
+            background-color: #dde1e6;
+        }
+        
+        .sortable {
+            padding-right: 25px;
+        }
+        
+        .sort-icon {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
         }
         
         tr:nth-child(even) {
@@ -256,6 +275,14 @@
         .sync-success { background: #d4edda; color: #155724; }
         .sync-error { background: #f8d7da; color: #721c24; }
         .sync-loading { background: #d1ecf1; color: #0c5460; }
+        
+        .sort-info {
+            margin: 10px 0;
+            padding: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -408,15 +435,37 @@
                 <input type="text" id="searchInput" placeholder="Buscar por paciente, diagnóstico ou tipo de exame...">
             </div>
 
+            <div class="sort-info" id="sortInfo">
+                Ordenado por: <strong>Data do Estudo (mais recente primeiro)</strong>
+            </div>
+
             <table id="examsTable">
                 <thead>
                     <tr>
-                        <th>Data do Exame</th>
-                        <th>Data do Estudo</th>
-                        <th>Paciente</th>
-                        <th>Tipo de Exame</th>
-                        <th>Seu Diagnóstico</th>
-                        <th>Acerto</th>
+                        <th class="sortable" onclick="sortTable('examDate')">
+                            Data do Exame
+                            <span class="sort-icon" id="sortExamDate">↓</span>
+                        </th>
+                        <th class="sortable" onclick="sortTable('studyDate')">
+                            Data do Estudo
+                            <span class="sort-icon" id="sortStudyDate">↓</span>
+                        </th>
+                        <th class="sortable" onclick="sortTable('patientName')">
+                            Paciente
+                            <span class="sort-icon" id="sortPatientName"></span>
+                        </th>
+                        <th class="sortable" onclick="sortTable('examType')">
+                            Tipo de Exame
+                            <span class="sort-icon" id="sortExamType"></span>
+                        </th>
+                        <th class="sortable" onclick="sortTable('diagnosis')">
+                            Seu Diagnóstico
+                            <span class="sort-icon" id="sortDiagnosis"></span>
+                        </th>
+                        <th class="sortable" onclick="sortTable('diagnosisAccuracy')">
+                            Acerto
+                            <span class="sort-icon" id="sortDiagnosisAccuracy"></span>
+                        </th>
                         <th>Observações</th>
                         <th>Ações</th>
                     </tr>
@@ -445,6 +494,12 @@
 
         let exams = [];
         let editingIndex = -1;
+        
+        // VARIÁVEIS DE ORDENAÇÃO
+        let currentSort = {
+            field: 'studyDate',
+            direction: 'desc' // 'asc' ou 'desc'
+        };
 
         // ELEMENTOS DO DOM
         const examForm = document.getElementById('examForm');
@@ -452,6 +507,7 @@
         const clearFormBtn = document.getElementById('clearForm');
         const searchInput = document.getElementById('searchInput');
         const syncStatus = document.getElementById('sync-status');
+        const sortInfo = document.getElementById('sortInfo');
 
         // FUNÇÃO PARA CARREGAR DO FIREBASE
         async function carregarDadosFirebase() {
@@ -468,6 +524,7 @@
                 syncStatus.className = 'sync-status sync-success';
                 syncStatus.textContent = '✅ Dados sincronizados do Firebase!';
                 
+                applySorting(); // Aplica ordenação ao carregar
                 renderTable();
                 if (document.getElementById('dashboard-tab').classList.contains('active')) {
                     updateDashboard();
@@ -512,6 +569,7 @@
                     const examId = exams[index].id;
                     await db.collection('estudosRessonancia').doc(examId).delete();
                     exams.splice(index, 1);
+                    applySorting();
                     renderTable();
                     if (document.getElementById('dashboard-tab').classList.contains('active')) {
                         updateDashboard();
@@ -523,7 +581,87 @@
             }
         }
 
-        // FUNÇÕES DA INTERFACE
+        // ========== SISTEMA DE ORDENAÇÃO ==========
+
+        function sortTable(field) {
+            // Se clicar no mesmo campo, inverte a direção
+            if (currentSort.field === field) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                // Se clicar em campo diferente, define como ascendente
+                currentSort.field = field;
+                currentSort.direction = 'asc';
+            }
+            
+            applySorting();
+            updateSortIcons();
+            updateSortInfo();
+            renderTable();
+        }
+
+        function applySorting() {
+            exams.sort((a, b) => {
+                let valueA = a[currentSort.field];
+                let valueB = b[currentSort.field];
+                
+                // Para datas, converte para timestamp
+                if (currentSort.field.includes('Date')) {
+                    valueA = new Date(valueA).getTime();
+                    valueB = new Date(valueB).getTime();
+                }
+                
+                // Para strings, converte para minúsculas para comparação case-insensitive
+                if (typeof valueA === 'string') {
+                    valueA = valueA.toLowerCase();
+                    valueB = valueB.toLowerCase();
+                }
+                
+                // Para campos que podem ser undefined/null
+                if (valueA === undefined || valueA === null) valueA = '';
+                if (valueB === undefined || valueB === null) valueB = '';
+                
+                let result = 0;
+                if (valueA < valueB) result = -1;
+                if (valueA > valueB) result = 1;
+                
+                // Inverte se for ordem decrescente
+                return currentSort.direction === 'desc' ? -result : result;
+            });
+        }
+
+        function updateSortIcons() {
+            // Remove todos os ícones primeiro
+            document.querySelectorAll('.sort-icon').forEach(icon => {
+                icon.textContent = '';
+            });
+            
+            // Adiciona o ícone no campo atual
+            const currentIcon = document.getElementById(`sort${capitalizeFirstLetter(currentSort.field)}`);
+            if (currentIcon) {
+                currentIcon.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
+            }
+        }
+
+        function updateSortInfo() {
+            const fieldNames = {
+                'examDate': 'Data do Exame',
+                'studyDate': 'Data do Estudo', 
+                'patientName': 'Paciente',
+                'examType': 'Tipo de Exame',
+                'diagnosis': 'Diagnóstico',
+                'diagnosisAccuracy': 'Acerto'
+            };
+            
+            const directionText = currentSort.direction === 'asc' ? 'crescente' : 'decrescente';
+            sortInfo.innerHTML = `Ordenado por: <strong>${fieldNames[currentSort.field]} (${directionText})</strong>`;
+        }
+
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+
+        // ========== FUNÇÕES DA INTERFACE ==========
+
         function switchTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
@@ -588,7 +726,6 @@
         }
 
         function formatDate(dateString) {
-            // CORREÇÃO: Usa a data diretamente sem conversão de fuso
             const [year, month, day] = dateString.split('-');
             return `${day}/${month}/${year}`;
         }
@@ -628,6 +765,7 @@
             }
             
             if (success) {
+                applySorting(); // Re-aplica ordenação após adicionar/editar
                 renderTable();
                 examForm.reset();
                 toggleCorrectDiagnosis();

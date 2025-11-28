@@ -509,6 +509,44 @@
         const syncStatus = document.getElementById('sync-status');
         const sortInfo = document.getElementById('sortInfo');
 
+        // ========== FUNÇÕES DO FIREBASE ==========
+
+        // FUNÇÃO PARA SALVAR DADOS NO FIREBASE
+        async function salvarDadosFirebase() {
+            try {
+                syncStatus.className = 'sync-status sync-loading';
+                syncStatus.textContent = '🔄 Salvando no Firebase...';
+                
+                // Salva todos os exames no Firebase
+                const batch = db.batch();
+                const collectionRef = db.collection('estudosRessonancia');
+                
+                // Limpa a coleção atual
+                const snapshot = await collectionRef.get();
+                snapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                
+                // Adiciona todos os exames atuais
+                exams.forEach(exam => {
+                    const docRef = collectionRef.doc(exam.id || Math.random().toString(36).substr(2, 9));
+                    batch.set(docRef, exam);
+                });
+                
+                await batch.commit();
+                
+                syncStatus.className = 'sync-status sync-success';
+                syncStatus.textContent = '✅ Dados salvos no Firebase!';
+                return true;
+                
+            } catch (error) {
+                console.error('Erro ao salvar no Firebase:', error);
+                syncStatus.className = 'sync-status sync-error';
+                syncStatus.textContent = '❌ Erro ao salvar dados';
+                return false;
+            }
+        }
+
         // FUNÇÃO PARA CARREGAR DO FIREBASE
         async function carregarDadosFirebase() {
             try {
@@ -537,38 +575,13 @@
             }
         }
 
-        // FUNÇÃO PARA SALVAR NO FIREBASE
-        async function salvarDadosFirebase(examData, isEditing = false, examId = null) {
-            try {
-                syncStatus.className = 'sync-status sync-loading';
-                syncStatus.textContent = '🔄 Salvando no Firebase...';
-                
-                if (isEditing && examId) {
-                    await db.collection('estudosRessonancia').doc(examId).update(examData);
-                } else {
-                    const docRef = await db.collection('estudosRessonancia').add(examData);
-                    examData.id = docRef.id;
-                }
-                
-                syncStatus.className = 'sync-status sync-success';
-                syncStatus.textContent = '✅ Dados salvos no Firebase!';
-                return true;
-                
-            } catch (error) {
-                console.error('Erro ao salvar no Firebase:', error);
-                syncStatus.className = 'sync-status sync-error';
-                syncStatus.textContent = '❌ Erro ao salvar dados';
-                return false;
-            }
-        }
-
         // FUNÇÃO PARA EXCLUIR DO FIREBASE
         async function deleteExam(index) {
             if (confirm('Tem certeza que deseja excluir este estudo?')) {
                 try {
-                    const examId = exams[index].id;
-                    await db.collection('estudosRessonancia').doc(examId).delete();
                     exams.splice(index, 1);
+                    // SALVA AS ALTERAÇÕES NO FIREBASE
+                    await salvarDadosFirebase();
                     applySorting();
                     renderTable();
                     if (document.getElementById('dashboard-tab').classList.contains('active')) {
@@ -730,7 +743,7 @@
             return `${day}/${month}/${year}`;
         }
 
-        // EVENTO DE SUBMIT DO FORMULÁRIO
+        // EVENTO DE SUBMIT DO FORMULÁRIO (VERSÃO CORRIGIDA)
         examForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -747,22 +760,17 @@
                 timestamp: new Date().toISOString()
             };
             
-            let success = false;
-            
             if (editingIndex === -1) {
                 // Adicionar novo
-                success = await salvarDadosFirebase(examData);
-                if (success) {
-                    exams.push(examData);
-                }
+                examData.id = Math.random().toString(36).substr(2, 9); // Gera ID único
+                exams.push(examData);
             } else {
                 // Editar existente
-                const examId = exams[editingIndex].id;
-                success = await salvarDadosFirebase(examData, true, examId);
-                if (success) {
-                    exams[editingIndex] = { ...exams[editingIndex], ...examData };
-                }
+                exams[editingIndex] = { ...exams[editingIndex], ...examData };
             }
+            
+            // SALVA NO FIREBASE
+            const success = await salvarDadosFirebase();
             
             if (success) {
                 applySorting(); // Re-aplica ordenação após adicionar/editar

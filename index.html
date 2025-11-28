@@ -275,6 +275,7 @@
         .sync-success { background: #d4edda; color: #155724; }
         .sync-error { background: #f8d7da; color: #721c24; }
         .sync-loading { background: #d1ecf1; color: #0c5460; }
+        .sync-warning { background: #fff3cd; color: #856404; }
         
         .sort-info {
             margin: 10px 0;
@@ -283,11 +284,30 @@
             border-radius: 4px;
             font-size: 14px;
         }
+
+        .firebase-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📊 Controle de Estudos de Ressonância</h1>
+        
+        <div class="firebase-warning" id="firebaseWarning" style="display: none;">
+            <strong>⚠️ Atenção:</strong> O Firebase está com regras expiradas. 
+            <a href="https://console.firebase.google.com/project/controle-ressonancias-leo/firestore/rules" target="_blank">
+                Clique aqui para configurar as regras de segurança
+            </a>
+            <br>
+            <small>Enquanto isso, os dados estão sendo salvos localmente no seu navegador.</small>
+        </div>
+        
         <div id="sync-status" class="sync-status sync-loading">🔄 Conectando ao Firebase...</div>
         
         <div class="tabs">
@@ -489,8 +509,18 @@
         };
 
         // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+        let app;
+        let db;
+        let firebaseConnected = false;
+
+        try {
+            app = firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            firebaseConnected = true;
+        } catch (error) {
+            console.log('Firebase não pôde ser inicializado:', error);
+            firebaseConnected = false;
+        }
 
         let exams = [];
         let editingIndex = -1;
@@ -508,87 +538,135 @@
         const searchInput = document.getElementById('searchInput');
         const syncStatus = document.getElementById('sync-status');
         const sortInfo = document.getElementById('sortInfo');
+        const firebaseWarning = document.getElementById('firebaseWarning');
 
-        // ========== FUNÇÕES DO FIREBASE ==========
+        // ========== SISTEMA DE DADOS COM FALLBACK ==========
 
-        // FUNÇÃO PARA SALVAR DADOS NO FIREBASE
-        async function salvarDadosFirebase() {
+        // FUNÇÃO PARA SALVAR DADOS (Firebase + localStorage)
+        async function salvarDados() {
             try {
                 syncStatus.className = 'sync-status sync-loading';
-                syncStatus.textContent = '🔄 Salvando no Firebase...';
+                syncStatus.textContent = '🔄 Salvando dados...';
                 
-                // Salva todos os exames no Firebase
-                const batch = db.batch();
-                const collectionRef = db.collection('estudosRessonancia');
+                // Salva no localStorage (sempre funciona)
+                localStorage.setItem('estudosRessonancia', JSON.stringify(exams));
                 
-                // Limpa a coleção atual
-                const snapshot = await collectionRef.get();
-                snapshot.forEach(doc => {
-                    batch.delete(doc.ref);
-                });
-                
-                // Adiciona todos os exames atuais
-                exams.forEach(exam => {
-                    const docRef = collectionRef.doc(exam.id || Math.random().toString(36).substr(2, 9));
-                    batch.set(docRef, exam);
-                });
-                
-                await batch.commit();
-                
-                syncStatus.className = 'sync-status sync-success';
-                syncStatus.textContent = '✅ Dados salvos no Firebase!';
-                return true;
+                // Tenta salvar no Firebase se estiver conectado
+                if (firebaseConnected && db) {
+                    try {
+                        const batch = db.batch();
+                        const collectionRef = db.collection('estudosRessonancia');
+                        
+                        // Limpa a coleção atual
+                        const snapshot = await collectionRef.get();
+                        snapshot.forEach(doc => {
+                            batch.delete(doc.ref);
+                        });
+                        
+                        // Adiciona todos os exames atuais
+                        exams.forEach(exam => {
+                            const docRef = collectionRef.doc(exam.id);
+                            batch.set(docRef, exam);
+                        });
+                        
+                        await batch.commit();
+                        
+                        syncStatus.className = 'sync-status sync-success';
+                        syncStatus.textContent = '✅ Dados salvos e sincronizados!';
+                        firebaseWarning.style.display = 'none';
+                        return true;
+                    } catch (firebaseError) {
+                        console.log('Erro ao salvar no Firebase, usando localStorage:', firebaseError);
+                        syncStatus.className = 'sync-status sync-warning';
+                        syncStatus.textContent = '⚠️ Salvo localmente (Firebase com problema)';
+                        firebaseWarning.style.display = 'block';
+                        return true;
+                    }
+                } else {
+                    syncStatus.className = 'sync-status sync-warning';
+                    syncStatus.textContent = '⚠️ Salvo localmente (Firebase não disponível)';
+                    firebaseWarning.style.display = 'block';
+                    return true;
+                }
                 
             } catch (error) {
-                console.error('Erro ao salvar no Firebase:', error);
+                console.error('Erro ao salvar dados:', error);
                 syncStatus.className = 'sync-status sync-error';
                 syncStatus.textContent = '❌ Erro ao salvar dados';
                 return false;
             }
         }
 
-        // FUNÇÃO PARA CARREGAR DO FIREBASE
-        async function carregarDadosFirebase() {
+        // FUNÇÃO PARA CARREGAR DADOS (Firebase + localStorage)
+        async function carregarDados() {
             try {
                 syncStatus.className = 'sync-status sync-loading';
-                syncStatus.textContent = '🔄 Carregando dados do Firebase...';
+                syncStatus.textContent = '🔄 Carregando dados...';
                 
-                const snapshot = await db.collection('estudosRessonancia').get();
-                exams = [];
-                snapshot.forEach(doc => {
-                    exams.push({ id: doc.id, ...doc.data() });
-                });
+                let dadosCarregados = false;
                 
-                syncStatus.className = 'sync-status sync-success';
-                syncStatus.textContent = '✅ Dados sincronizados do Firebase!';
+                // Tenta carregar do Firebase primeiro
+                if (firebaseConnected && db) {
+                    try {
+                        const snapshot = await db.collection('estudosRessonancia').get();
+                        exams = [];
+                        snapshot.forEach(doc => {
+                            exams.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        if (exams.length > 0) {
+                            syncStatus.className = 'sync-status sync-success';
+                            syncStatus.textContent = '✅ Dados carregados do Firebase!';
+                            firebaseWarning.style.display = 'none';
+                            dadosCarregados = true;
+                        }
+                    } catch (firebaseError) {
+                        console.log('Erro ao carregar do Firebase:', firebaseError);
+                    }
+                }
                 
-                applySorting(); // Aplica ordenação ao carregar
+                // Se não conseguiu carregar do Firebase, tenta do localStorage
+                if (!dadosCarregados) {
+                    const dadosLocais = localStorage.getItem('estudosRessonancia');
+                    if (dadosLocais) {
+                        exams = JSON.parse(dadosLocais);
+                        syncStatus.className = 'sync-status sync-warning';
+                        syncStatus.textContent = '📱 Dados carregados do backup local';
+                        firebaseWarning.style.display = 'block';
+                        dadosCarregados = true;
+                    } else {
+                        exams = [];
+                        syncStatus.className = 'sync-status sync-success';
+                        syncStatus.textContent = '✨ Sistema pronto para uso!';
+                    }
+                }
+                
+                applySorting();
                 renderTable();
                 if (document.getElementById('dashboard-tab').classList.contains('active')) {
                     updateDashboard();
                 }
                 
             } catch (error) {
-                console.error('Erro ao carregar do Firebase:', error);
+                console.error('Erro ao carregar dados:', error);
                 syncStatus.className = 'sync-status sync-error';
                 syncStatus.textContent = '❌ Erro ao carregar dados';
             }
         }
 
-        // FUNÇÃO PARA EXCLUIR DO FIREBASE
+        // FUNÇÃO PARA EXCLUIR EXAME
         async function deleteExam(index) {
             if (confirm('Tem certeza que deseja excluir este estudo?')) {
                 try {
                     exams.splice(index, 1);
-                    // SALVA AS ALTERAÇÕES NO FIREBASE
-                    await salvarDadosFirebase();
+                    await salvarDados();
                     applySorting();
                     renderTable();
                     if (document.getElementById('dashboard-tab').classList.contains('active')) {
                         updateDashboard();
                     }
                 } catch (error) {
-                    console.error('Erro ao excluir do Firebase:', error);
+                    console.error('Erro ao excluir estudo:', error);
                     alert('Erro ao excluir estudo');
                 }
             }
@@ -597,11 +675,9 @@
         // ========== SISTEMA DE ORDENAÇÃO ==========
 
         function sortTable(field) {
-            // Se clicar no mesmo campo, inverte a direção
             if (currentSort.field === field) {
                 currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
             } else {
-                // Se clicar em campo diferente, define como ascendente
                 currentSort.field = field;
                 currentSort.direction = 'asc';
             }
@@ -617,19 +693,16 @@
                 let valueA = a[currentSort.field];
                 let valueB = b[currentSort.field];
                 
-                // Para datas, converte para timestamp
                 if (currentSort.field.includes('Date')) {
                     valueA = new Date(valueA).getTime();
                     valueB = new Date(valueB).getTime();
                 }
                 
-                // Para strings, converte para minúsculas para comparação case-insensitive
                 if (typeof valueA === 'string') {
                     valueA = valueA.toLowerCase();
                     valueB = valueB.toLowerCase();
                 }
                 
-                // Para campos que podem ser undefined/null
                 if (valueA === undefined || valueA === null) valueA = '';
                 if (valueB === undefined || valueB === null) valueB = '';
                 
@@ -637,18 +710,15 @@
                 if (valueA < valueB) result = -1;
                 if (valueA > valueB) result = 1;
                 
-                // Inverte se for ordem decrescente
                 return currentSort.direction === 'desc' ? -result : result;
             });
         }
 
         function updateSortIcons() {
-            // Remove todos os ícones primeiro
             document.querySelectorAll('.sort-icon').forEach(icon => {
                 icon.textContent = '';
             });
             
-            // Adiciona o ícone no campo atual
             const currentIcon = document.getElementById(`sort${capitalizeFirstLetter(currentSort.field)}`);
             if (currentIcon) {
                 currentIcon.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
@@ -743,7 +813,7 @@
             return `${day}/${month}/${year}`;
         }
 
-        // EVENTO DE SUBMIT DO FORMULÁRIO (VERSÃO CORRIGIDA)
+        // EVENTO DE SUBMIT DO FORMULÁRIO
         examForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -762,18 +832,17 @@
             
             if (editingIndex === -1) {
                 // Adicionar novo
-                examData.id = Math.random().toString(36).substr(2, 9); // Gera ID único
+                examData.id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
                 exams.push(examData);
             } else {
                 // Editar existente
                 exams[editingIndex] = { ...exams[editingIndex], ...examData };
             }
             
-            // SALVA NO FIREBASE
-            const success = await salvarDadosFirebase();
+            const success = await salvarDados();
             
             if (success) {
-                applySorting(); // Re-aplica ordenação após adicionar/editar
+                applySorting();
                 renderTable();
                 examForm.reset();
                 toggleCorrectDiagnosis();
@@ -832,9 +901,8 @@
             toggleCorrectDiagnosis();
         });
 
-        // FUNÇÕES DO DASHBOARD (simplificadas para exemplo)
+        // FUNÇÕES DO DASHBOARD
         function updateDashboard() {
-            // Estatísticas básicas
             const totalExams = exams.length;
             const correct = exams.filter(exam => exam.diagnosisAccuracy === 'correct').length;
             const partial = exams.filter(exam => exam.diagnosisAccuracy === 'partial').length;
@@ -887,7 +955,7 @@
         document.getElementById('studyDate').valueAsDate = new Date();
 
         // CARREGAR DADOS AO INICIAR
-        document.addEventListener('DOMContentLoaded', carregarDadosFirebase);
+        document.addEventListener('DOMContentLoaded', carregarDados);
     </script>
 </body>
 </html>

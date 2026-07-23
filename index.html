@@ -591,7 +591,23 @@
                     scales: { 
                         x: { stacked: true }, 
                         y: { stacked: true, beginAtZero: true } 
-                    } 
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    let val = context.parsed.y;
+                                    if (val !== null) {
+                                        let totalSec = Math.round(val * 60); // converte minutos de volta para segundos
+                                        label += formatTime(totalSec);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
                 }
             });
 
@@ -607,8 +623,27 @@
 
             if(chartAtividades) chartAtividades.destroy();
             chartAtividades = new Chart(document.getElementById('chartAtividades'), {
-                type: 'doughnut', data: { labels: atvLabels, datasets: [{ data: atvData, backgroundColor: atvCores }] },
-                options: { responsive: true, maintainAspectRatio: false }
+                type: 'doughnut', 
+                data: { labels: atvLabels, datasets: [{ data: atvData, backgroundColor: atvCores }] },
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) { label += ': '; }
+                                    let val = context.parsed;
+                                    if (val !== null) {
+                                        let totalSec = Math.round(val * 60);
+                                        label += formatTime(totalSec);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
             });
 
             gerarRelatorioTempos(filteredTempos);

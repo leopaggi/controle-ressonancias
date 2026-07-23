@@ -98,11 +98,11 @@
         .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
         /* TABELA DE TEMPOS DO RELATÓRIO */
-        .relatorio-tempos-body { font-family: 'Courier New', Courier, monospace; font-size: 0.85rem; color: #555; }
-        .relatorio-atv-titulo { font-weight: bold; color: var(--dark); margin-top: 15px; font-size: 0.9rem; border-bottom: 1px dashed #ccc; padding-bottom: 3px; }
+        .relatorio-tempos-body { font-family: 'Courier New', Courier, monospace; font-size: 0.85rem; color: #555; padding: 10px; background: #fafafa; border-radius: 5px; }
+        .relatorio-atv-titulo { font-weight: bold; margin-top: 15px; font-size: 0.9rem; border-bottom: 2px solid; padding-bottom: 3px; text-transform: uppercase; }
         .relatorio-tempos-lista { list-style: none; padding-left: 20px; margin-top: 5px; }
-        .relatorio-tempos-lista li { padding: 2px 0; display: flex; justify-content: space-between; max-width: 300px; }
-        .relatorio-tempos-lista li span:first-child { color: var(--success); font-weight: bold; margin-right: 10px; }
+        .relatorio-tempos-lista li { padding: 2px 0; display: flex; justify-content: space-between; max-width: 400px; }
+        .relatorio-tempos-lista li span:first-child { font-weight: bold; margin-right: 15px; }
 
         /* FORMULÁRIO CASOS CLÍNICOS */
         .form-container { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid var(--secondary); }
@@ -116,7 +116,7 @@
         .btn-action { background-color: var(--warning); color: white; }
         button { border: none; border-radius: 5px; cursor: pointer; padding: 8px 15px; font-weight: bold; font-size: 0.85rem; }
 
-        /* TABELA CASOS */
+        /* TABELAS GERAl */
         .casos-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; }
         .casos-table th, .casos-table td { padding: 10px; border: 1px solid #ddd; text-align: left; }
         .casos-table th { background-color: var(--primary); color: white; }
@@ -197,7 +197,7 @@
 
             <div class="dashboard-grid">
                 <div class="chart-box">
-                    <h3>Tempo Médio por Segmento (Minutos)</h3>
+                    <h3>Tempo por Segmento (Separado por Atividade)</h3>
                     <div class="filter-bar">
                         <button class="filter-btn active" onclick="setGraphView('day')">Hoje</button>
                         <button class="filter-btn" onclick="setGraphView('week')">Semana</button>
@@ -215,7 +215,7 @@
                     <div style="height: 260px;"><canvas id="chartAtividades"></canvas></div>
                 </div>
 
-                <!-- NOVA TABELA DE TEMPOS -->
+                <!-- TABELA DE TEMPOS -->
                 <div class="chart-box full-width">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 2px solid #eee; padding-bottom: 4px;">
                         <h3 style="margin: 0;">📋 Relatório de Tempos Cronometrados</h3>
@@ -317,6 +317,20 @@
                 <h3>Evolução de Acertos vs Erros</h3>
                 <canvas id="chartEvolucao"></canvas>
             </div>
+            <div class="chart-box full-width" style="margin-top: 20px; height: auto;">
+                <h3>📅 Histórico de Tempo Estudado por Dia</h3>
+                <div style="overflow-y: auto; max-height: 400px; margin-top: 10px;">
+                    <table class="casos-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Tempo Total Estudado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historicoTemposBody"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -366,6 +380,15 @@
             'video-aula': 'Assistir Videoaula/Curso',
             'pre-laudo': 'Realizar Pré-Laudo (Prévia)',
             'estudo-caso': 'Estudo de Caso Clínico'
+        };
+
+        // CORES PADRÃO DAS ATIVIDADES
+        const coresAtividades = {
+            'imagens-pacientes': '#e74c3c', // Vermelho
+            'leitura-livro': '#f39c12',    // Laranja
+            'video-aula': '#9b59b6',       // Roxo
+            'pre-laudo': '#27ae60',        // Verde
+            'estudo-caso': '#3498db'       // Azul
         };
 
         let dadosApp = { tempos: {}, casos: [] };
@@ -520,7 +543,6 @@
         }
         function setGraphView(view) {
             currentView = view;
-            // Atualiza todos os botões de filtro
             document.querySelectorAll('.filter-btn').forEach(btn => { 
                 btn.classList.toggle('active', btn.textContent.toLowerCase().includes(view.substring(0,3))); 
             });
@@ -538,25 +560,45 @@
                 }
             });
 
-            // Gráfico Segmentos
+            // Gráfico Segmentos (Empilhado por Atividade)
             const segLabels = Object.values(segmentosRM);
-            const segData = new Array(segLabels.length).fill(0);
-            filteredTempos.forEach(t => {
-                const idx = Object.keys(segmentosRM).indexOf(t.segmento);
-                if(idx !== -1) segData[idx] += t.tempo / 60; // em minutos
+            const segKeys = Object.keys(segmentosRM);
+            const atvKeys = Object.keys(nomesAtividades);
+            
+            const datasetsSeg = atvKeys.map(atvKey => {
+                const data = new Array(segLabels.length).fill(0);
+                filteredTempos.forEach(t => {
+                    if (t.atividade === atvKey) {
+                        const idx = segKeys.indexOf(t.segmento);
+                        if(idx !== -1) data[idx] += t.tempo / 60; // em minutos
+                    }
+                });
+                return {
+                    label: nomesAtividades[atvKey],
+                    data: data,
+                    backgroundColor: coresAtividades[atvKey],
+                    borderColor: coresAtividades[atvKey],
+                    borderWidth: 1
+                };
             });
 
             if(chartSegmentos) chartSegmentos.destroy();
             chartSegmentos = new Chart(document.getElementById('chartSegmentos'), {
-                type: 'bar', data: { labels: segLabels, datasets: [{ label: 'Minutos', data: segData, backgroundColor: '#3498db' }] },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                type: 'bar', 
+                data: { labels: segLabels, datasets: datasetsSeg },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    scales: { 
+                        x: { stacked: true }, 
+                        y: { stacked: true, beginAtZero: true } 
+                    } 
+                }
             });
 
-            // Gráfico Atividades
+            // Gráfico Atividades (Pizza)
             const atvLabels = Object.values(nomesAtividades);
-            const atvKeys = Object.keys(nomesAtividades);
             const atvData = new Array(atvLabels.length).fill(0);
-            const atvCores = ['#e74c3c', '#f39c12', '#9b59b6', '#27ae60', '#3498db'];
+            const atvCores = atvKeys.map(k => coresAtividades[k]);
             
             filteredTempos.forEach(t => {
                 const idx = atvKeys.indexOf(t.atividade);
@@ -588,15 +630,19 @@
             });
 
             let html = '';
-            Object.keys(agrupado).forEach(atvKey => {
-                html += `<div class="relatorio-atv-titulo">* ${nomesAtividades[atvKey]}</div>`;
-                html += `<ul class="relatorio-tempos-lista">`;
-                Object.keys(agrupado[atvKey]).forEach(segKey => {
-                    const nomeSeg = segmentosRM[segKey] || segKey;
-                    const tempoFormatado = formatMinSec(agrupado[atvKey][segKey]);
-                    html += `<li><span>${tempoFormatado}</span> <span>${nomeSeg}</span></li>`;
-                });
-                html += `</ul>`;
+            // Ordena as atividades para aparecerem na mesma ordem sempre
+            Object.keys(nomesAtividades).forEach(atvKey => {
+                if(agrupado[atvKey]) {
+                    const cor = coresAtividades[atvKey];
+                    html += `<div class="relatorio-atv-titulo" style="color: ${cor}; border-color: ${cor};">* ${nomesAtividades[atvKey]}</div>`;
+                    html += `<ul class="relatorio-tempos-lista">`;
+                    Object.keys(agrupado[atvKey]).forEach(segKey => {
+                        const nomeSeg = segmentosRM[segKey] || segKey;
+                        const tempoFormatado = formatMinSec(agrupado[atvKey][segKey]);
+                        html += `<li><span style="color: ${cor};">${tempoFormatado}</span> <span>${nomeSeg}</span></li>`;
+                    });
+                    html += `</ul>`;
+                }
             });
 
             container.innerHTML = html;
@@ -679,6 +725,7 @@
 
         // RELATÓRIOS
         function gerarRelatorios() {
+            // 1. Stats de Casos Clínicos
             const total = dadosApp.casos.length;
             const correct = dadosApp.casos.filter(c => c.accuracy === 'correct').length;
             const partial = dadosApp.casos.filter(c => c.accuracy === 'partial').length;
@@ -693,6 +740,7 @@
                 <div class="stat-item"><div class="stat-number">${taxa}%</div><div class="stat-label">Taxa de Acerto</div></div>
             `;
 
+            // 2. Gráfico de Evolução
             if(chartEvolucao) chartEvolucao.destroy();
             chartEvolucao = new Chart(document.getElementById('chartEvolucao'), {
                 type: 'bar', data: { labels: ['Casos Clínicos'], datasets: [
@@ -700,6 +748,26 @@
                     { label: 'Parciais', data: [partial], backgroundColor: '#f39c12' },
                     { label: 'Erros', data: [incorrect], backgroundColor: '#e74c3c' }
                 ]}, options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 3. Histórico de Tempo por Dia
+            const histBody = document.getElementById('historicoTemposBody');
+            histBody.innerHTML = '';
+            const datas = Object.keys(dadosApp.tempos).sort((a, b) => new Date(b) - new Date(a));
+            
+            if(datas.length === 0) {
+                histBody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Nenhum tempo cronometrado ainda.</td></tr>';
+                return;
+            }
+
+            datas.forEach(data => {
+                const totalSegundosDia = dadosApp.tempos[data].reduce((acc, curr) => acc + curr.tempo, 0);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight:bold;">${data.split('-').reverse().join('/')}</td>
+                    <td style="color: var(--success); font-weight:bold; font-family: 'Courier New', Courier, monospace;">${formatTime(totalSegundosDia)}</td>
+                `;
+                histBody.appendChild(tr);
             });
         }
 

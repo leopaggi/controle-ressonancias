@@ -3,502 +3,308 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle de Estudos de Ressonância</title>
+    <title>Controle de Estudos de Ressonância Magnética</title>
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --info: #17a2b8;
+            --dark: #34495e;
+            --light-bg: #f5f7fa;
         }
         
-        .container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--light-bg); color: #333; line-height: 1.6; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); padding: 25px; }
         
-        .form-container {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-        
-        .form-group {
-            margin-bottom: 10px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            color: #495057;
-        }
-        
-        input, select, textarea {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        
-        button {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-        
-        button:hover {
-            background-color: #0056b3;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        
-        th, td {
-            border: 1px solid #ddd;
-            padding: 12px;
-            text-align: left;
-        }
-        
-        th {
-            background-color: #e9ecef;
-            cursor: pointer;
-            position: relative;
-            user-select: none;
-        }
-        
-        th:hover {
-            background-color: #dde1e6;
-        }
-        
-        .sortable {
-            padding-right: 25px;
-        }
-        
-        .sort-icon {
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 12px;
-        }
-        
-        tr:nth-child(even) {
-            background-color: #f8f9fa;
-        }
-        
-        .actions {
-            display: flex;
-            gap: 5px;
-        }
-        
-        .btn-edit {
-            background-color: #28a745;
-        }
-        
-        .btn-delete {
-            background-color: #dc3545;
-        }
-        
-        .search-container {
-            margin-bottom: 15px;
-        }
-        
-        #searchInput {
-            width: 300px;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        
-        .dashboard {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .dashboard-card {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            border-left: 4px solid #007bff;
-        }
-        
-        .dashboard-card h3 {
-            margin-top: 0;
-            color: #2c3e50;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .stat-item {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 6px;
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #007bff;
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            color: #6c757d;
-            margin-top: 5px;
-        }
-        
-        .diagnosis-list {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        
-        .diagnosis-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .tabs {
-            display: flex;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .tab {
-            padding: 10px 20px;
-            cursor: pointer;
-            border: 1px solid transparent;
-            border-bottom: none;
-            border-radius: 4px 4px 0 0;
-            margin-right: 5px;
-        }
-        
-        .tab.active {
-            background-color: #007bff;
-            color: white;
-        }
-        
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        .export-btn {
-            background-color: #28a745;
-            margin-bottom: 15px;
-        }
-        
-        .daily-summary {
-            margin-top: 15px;
-        }
-        
-        .day-group {
-            background: #f8f9fa;
-            margin-bottom: 10px;
-            padding: 15px;
-            border-radius: 6px;
-            border-left: 4px solid #28a745;
-        }
-        
-        .day-header {
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: #2c3e50;
-        }
-        
-        .exam-types {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 5px;
-        }
-        
-        .exam-type-badge {
-            background: #007bff;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-        }
-        
-        .accuracy-badge {
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        
-        .accuracy-correct { background: #d4edda; color: #155724; }
-        .accuracy-partial { background: #fff3cd; color: #856404; }
-        .accuracy-incorrect { background: #f8d7da; color: #721c24; }
-        
-        .sync-status {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 4px;
-            text-align: center;
-            font-weight: bold;
-        }
+        header { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        h1 { color: var(--primary); margin-bottom: 5px; font-size: 1.5rem; }
+        .sync-status { padding: 5px 12px; border-radius: 15px; font-size: 0.8rem; font-weight: bold; display: inline-block; }
         .sync-success { background: #d4edda; color: #155724; }
         .sync-error { background: #f8d7da; color: #721c24; }
         .sync-loading { background: #d1ecf1; color: #0c5460; }
         .sync-warning { background: #fff3cd; color: #856404; }
         
-        .sort-info {
-            margin: 10px 0;
-            padding: 8px;
-            background: #e9ecef;
-            border-radius: 4px;
-            font-size: 14px;
-        }
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #ddd; flex-wrap: wrap; }
+        .tab { padding: 10px 20px; background: #f8f9fa; border: none; border-radius: 5px 5px 0 0; margin-right: 5px; cursor: pointer; font-weight: bold; transition: all 0.3s; font-size: 0.9rem; border: 1px solid #ddd; border-bottom: none; }
+        .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
 
-        .firebase-warning {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
+        /* CSS DO CRONÔMETRO E WORKFLOW */
+        .workflow-container {
+            background: white;
+            border: 1px solid #e1e1e1;
+            border-radius: 8px;
             padding: 15px;
-            border-radius: 6px;
-            margin: 10px 0;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 15px;
+            align-items: start;
         }
+        @media (max-width: 900px) { .workflow-container { grid-template-columns: 1fr; } }
+
+        .timer-box {
+            background: #e8f6f3;
+            border-radius: 10px;
+            border-left: 5px solid var(--success);
+            padding: 10px;
+        }
+        .timer-box.paused { background: #fdedec; border-left-color: var(--danger); }
+
+        .timer-total {
+            background: var(--primary);
+            border-radius: 8px;
+            padding: 8px 12px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        .timer-total .session-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.7); display: block; }
+        .timer-total .timer-display { font-size: 1.3rem; font-weight: bold; font-family: 'Courier New', Courier, monospace; color: #27ae60; }
+
+        .timer-current { text-align: center; padding: 5px; }
+        .timer-current .session-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: #2c3e50; font-weight: bold; display: block; }
+        .timer-current .timer-display { font-size: 1.3rem; font-weight: bold; font-family: 'Courier New', Courier, monospace; color: var(--primary); }
+        .timer-btn-group { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
+        .timer-btn { padding: 4px 12px; font-size: 0.75rem; border-radius: 20px; border: none; cursor: pointer; font-weight: bold; }
+
+        .controls-box { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+        .control-group { display: flex; flex-direction: column; gap: 4px; flex-grow: 1; }
+        .control-label { font-size: 0.7rem; font-weight: bold; color: #666; text-transform: uppercase; }
+        select, input[type="date"], input[type="text"], input[type="month"], textarea {
+            padding: 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 0.85rem; min-width: 130px; width: 100%;
+        }
+        textarea { resize: vertical; }
+
+        .checkbox-scroll {
+            display: flex; flex-wrap: wrap; gap: 6px; max-height: 100px; overflow-y: auto; padding: 6px; border: 1px solid #eee; border-radius: 5px; background: #fafafa;
+        }
+        .check-item { background: white; border: 1px solid #ddd; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px; }
+        .check-item input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .check-item:has(input:checked) { background: var(--secondary); color: white; border-color: var(--secondary); font-weight: bold; }
+
+        /* GRÁFICOS */
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        @media (max-width: 1000px) { .dashboard-grid { grid-template-columns: 1fr; } }
+        .chart-box { background: white; padding: 12px; border-radius: 8px; border: 1px solid #eee; height: 350px; }
+        .chart-box.full-width { grid-column: 1 / -1; height: 400px; }
+        .chart-box h3 { font-size: 0.85rem; color: var(--primary); margin-bottom: 8px; border-bottom: 2px solid #eee; padding-bottom: 4px; }
+        .filter-bar { display: flex; gap: 4px; margin-bottom: 10px; background: #f8f9fa; padding: 4px; border-radius: 5px; }
+        .filter-btn { padding: 4px 12px; border-radius: 12px; background: white; border: 1px solid #ddd; cursor: pointer; font-size: 0.7rem; font-weight: bold; }
+        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* FORMULÁRIO CASOS CLÍNICOS */
+        .form-container { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid var(--secondary); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } }
+        .form-group { margin-bottom: 10px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #495057; font-size: 0.85rem; }
+        
+        .btn-save { background-color: var(--success); color: white; }
+        .btn-reset { background-color: var(--danger); color: white; }
+        .btn-action { background-color: var(--warning); color: white; }
+        button { border: none; border-radius: 5px; cursor: pointer; padding: 8px 15px; font-weight: bold; font-size: 0.85rem; }
+
+        /* TABELA CASOS */
+        .casos-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; }
+        .casos-table th, .casos-table td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        .casos-table th { background-color: var(--primary); color: white; cursor: pointer; }
+        .casos-table tr:nth-child(even) { background-color: #f9f9f9; }
+        .accuracy-badge { padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
+        .accuracy-correct { background: #d4edda; color: #155724; }
+        .accuracy-partial { background: #fff3cd; color: #856404; }
+        .accuracy-incorrect { background: #f8d7da; color: #721c24; }
+        
+        .search-container { margin-bottom: 15px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
+        .stat-item { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; border-top: 3px solid var(--secondary); }
+        .stat-number { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+        .stat-label { font-size: 0.75rem; color: #6c757d; margin-top: 5px; text-transform: uppercase; }
+        
+        .temp-notification { position: fixed; bottom: 20px; right: 20px; color: white; padding: 12px 20px; border-radius: 8px; z-index: 9999; font-weight: bold; font-size: 0.9rem; animation: slideIn 0.3s ease-out; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📊 Controle de Estudos de Ressonância</h1>
-        
-        <div class="firebase-warning" id="firebaseWarning" style="display: none;">
-            <strong>⚠️ Atenção:</strong> O Firebase está com regras expiradas. 
-            <a href="https://console.firebase.google.com/project/controle-ressonancias-leo/firestore/rules" target="_blank">
-                Clique aqui para configurar as regras de segurança
-            </a>
-            <br>
-            <small>Enquanto isso, os dados estão sendo salvos localmente no seu navegador.</small>
-        </div>
-        
-        <div id="sync-status" class="sync-status sync-loading">🔄 Conectando ao Firebase...</div>
+        <header>
+            <h1>🧠 Controle de Estudos de Ressonância Magnética</h1>
+            <div id="sync-status" class="sync-status sync-loading">Conectando...</div>
+        </header>
         
         <div class="tabs">
-            <div class="tab active" onclick="switchTab('form')">Adicionar Estudo</div>
-            <div class="tab" onclick="switchTab('dashboard')">Relatórios e Estatísticas</div>
-            <div class="tab" onclick="switchTab('exams')">Lista de Exames</div>
+            <button class="tab active" onclick="abrirTab(event, 'cronometro')"⏱️ Cronômetro de Estudos</button>
+            <button class="tab" onclick="abrirTab(event, 'casos')">📁 Registrar Caso Clínico</button>
+            <button class="tab" onclick="abrirTab(event, 'relatorios')">📊 Relatórios e Evolução</button>
         </div>
         
-        <!-- ABA: FORMULÁRIO -->
-        <div id="form-tab" class="tab-content active">
+        <!-- ABA CRONÔMETRO -->
+        <div id="cronometro" class="tab-content active">
+            <div class="workflow-container">
+                <div class="timer-box" id="timer-box">
+                    <div class="timer-total">
+                        <span class="session-label">⏳ TOTAL DE ESTUDOS HOJE</span>
+                        <div class="timer-display" id="total-timer-display">00:00:00</div>
+                    </div>
+                    <div class="timer-current">
+                        <span class="session-label">▶ ATIVIDADE ATUAL</span>
+                        <div class="timer-display" id="current-timer-display">00:00:00</div>
+                        <div class="timer-btn-group">
+                            <button class="timer-btn btn-action" id="btn-pause-current" onclick="togglePauseCurrentTimer()">⏸ Pausar</button>
+                            <button class="timer-btn btn-reset" onclick="resetCurrentTimer()">⟳ Reiniciar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls-box">
+                    <div class="control-group">
+                        <span class="control-label">Data</span>
+                        <input type="date" id="data-estudo">
+                    </div>
+                    <div class="control-group" style="flex-grow: 1;">
+                        <span class="control-label">1. Atividade Realizada</span>
+                        <select id="timer-atividade">
+                            <option value="">Selecione...</option>
+                            <option value="imagens-pacientes">Visualização de Imagens (Pacientes Reais)</option>
+                            <option value="leitura-livro">Leitura de Livro/Atlas</option>
+                            <option value="video-aula">Assistir Videoaula/Curso</option>
+                            <option value="pre-laudo">Realizar Pré-Laudo (Prévia)</option>
+                            <option value="estudo-caso">Estudo de Caso Clínico</option>
+                        </select>
+                    </div>
+                    <div class="control-group" style="flex-grow: 2;">
+                        <span class="control-label">2. Segmento/Região Avaliada</span>
+                        <div class="checkbox-scroll" id="timer-segmentos-container"></div>
+                    </div>
+                    <div class="control-group" style="justify-content: flex-end;">
+                        <button class="timer-btn btn-save" style="padding: 10px 20px; font-size: 0.9rem;" onclick="finalizarSessaoEstudo()">✅ Finalizar Sessão</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="chart-box">
+                    <h3>Tempo Médio por Segmento (Minutos)</h3>
+                    <div class="filter-bar">
+                        <button class="filter-btn active" onclick="setGraphView('day')">Hoje</button>
+                        <button class="filter-btn" onclick="setGraphView('week')">Semana</button>
+                        <button class="filter-btn" onclick="setGraphView('month')">Mês</button>
+                    </div>
+                    <div style="height: 260px;"><canvas id="chartSegmentos"></canvas></div>
+                </div>
+                <div class="chart-box">
+                    <h3>Distribuição de Tempo por Atividade</h3>
+                    <div class="filter-bar">
+                        <button class="filter-btn active" onclick="setGraphView('day')">Hoje</button>
+                        <button class="filter-btn" onclick="setGraphView('week')">Semana</button>
+                        <button class="filter-btn" onclick="setGraphView('month')">Mês</button>
+                    </div>
+                    <div style="height: 260px;"><canvas id="chartAtividades"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA CASOS CLÍNICOS -->
+        <div id="casos" class="tab-content">
             <div class="form-container">
-                <h3>Adicionar Novo Estudo</h3>
+                <h3 style="margin-bottom: 15px; color: var(--primary);">Adicionar Novo Caso</h3>
                 <form id="examForm">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-grid">
                         <div class="form-group">
-                            <label for="patientName">Nome do Paciente:</label>
+                            <label for="patientName">Nome do Paciente / Identificação:</label>
                             <input type="text" id="patientName" required>
                         </div>
-                        
                         <div class="form-group">
                             <label for="examType">Tipo de Exame:</label>
                             <select id="examType" required>
                                 <option value="">Selecione...</option>
-                                <option value="Ressonância Magnética Crânio">Ressonância Magnética Crânio</option>
-                                <option value="Ressonância Magnética Coluna Cervical">Ressonância Magnética Coluna Cervical</option>
-                                <option value="Ressonância Magnética Coluna Torácica">Ressonância Magnética Coluna Torácica</option>
-                                <option value="Ressonância Magnética Coluna Lombar">Ressonância Magnética Coluna Lombar</option>
-                                <option value="Ressonância Magnética Articular">Ressonância Magnética Articular</option>
-                                <option value="Ressonância Magnética Abdômen">Ressonância Magnética Abdômen</option>
-                                <option value="Ressonância Magnética Pélvica">Ressonância Magnética Pélvica</option>
-                                <option value="Ressonância Magnética Tórax">Ressonância Magnética Tórax</option>
+                                <option value="RM Crânio">RM Crânio</option>
+                                <option value="RM Coluna Cervical">RM Coluna Cervical</option>
+                                <option value="RM Coluna Torácica">RM Coluna Torácica</option>
+                                <option value="RM Coluna Lombar">RM Coluna Lombar</option>
+                                <option value="RM Articular (Membros)">RM Articular (Membros)</option>
+                                <option value="RM Abdômen">RM Abdômen</option>
+                                <option value="RM Pélvica">RM Pélvica</option>
                                 <option value="Angioressonância">Angioressonância</option>
                                 <option value="Outro">Outro</option>
                             </select>
                         </div>
                     </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-grid">
                         <div class="form-group">
                             <label for="examDate">Data do Exame:</label>
                             <input type="date" id="examDate" required>
                         </div>
-                        
                         <div class="form-group">
-                            <label for="studyDate">Data do Estudo (quando você analisou):</label>
-                            <input type="date" id="studyDate" required>
+                            <label for="diagnosisAccuracy">Acertou o diagnóstico?</label>
+                            <select id="diagnosisAccuracy" onchange="toggleCorrectDiagnosis()">
+                                <option value="">Selecione...</option>
+                                <option value="correct">✅ Sim - Acertou</option>
+                                <option value="partial">⚠️ Parcialmente</option>
+                                <option value="incorrect">❌ Não - Errou</option>
+                            </select>
                         </div>
                     </div>
-                    
                     <div class="form-group">
                         <label for="diagnosis">Seu Diagnóstico / Achados:</label>
-                        <textarea id="diagnosis" rows="3" required placeholder="Ex: AVE isquêmico agudo, Tumor de reto, Trombose venosa cerebral..."></textarea>
+                        <textarea id="diagnosis" rows="2" required placeholder="Ex: AVE isquêmico agudo, Tumor de reto..."></textarea>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="diagnosisAccuracy">Acertou o diagnóstico?</label>
-                        <select id="diagnosisAccuracy" onchange="toggleCorrectDiagnosis()">
-                            <option value="">Selecione...</option>
-                            <option value="correct">✅ Sim - Acertou</option>
-                            <option value="partial">⚠️ Parcialmente - Acertou parcialmente</option>
-                            <option value="incorrect">❌ Não - Errou</option>
-                        </select>
-                    </div>
-                    
                     <div class="form-group" id="correctDiagnosisGroup" style="display: none;">
                         <label for="correctDiagnosis">Diagnóstico Correto (se errou/parcial):</label>
-                        <textarea id="correctDiagnosis" rows="2" placeholder="Qual era o diagnóstico correto?"></textarea>
+                        <textarea id="correctDiagnosis" rows="2"></textarea>
                     </div>
-                    
-                    <div class="form-group" id="learningPointsGroup" style="display: none;">
+                    <div class="form-group">
                         <label for="learningPoints">Pontos de Aprendizado:</label>
                         <textarea id="learningPoints" rows="2" placeholder="O que você aprendeu com este caso?"></textarea>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="observations">Observações:</label>
-                        <textarea id="observations" rows="2"></textarea>
-                    </div>
-                    
-                    <button type="submit">Adicionar Estudo</button>
-                    <button type="button" id="clearForm">Limpar Formulário</button>
+                    <button type="submit" class="btn-save">Adicionar Caso</button>
+                    <button type="button" class="btn-reset" id="clearForm">Limpar Form</button>
                 </form>
             </div>
-        </div>
-        
-        <!-- ABA: DASHBOARD -->
-        <div id="dashboard-tab" class="tab-content">
-            <button class="export-btn" onclick="exportReport()">📥 Exportar Relatório Mensal</button>
-            
-            <div class="dashboard">
-                <div class="dashboard-card">
-                    <h3>📈 Estatísticas Gerais</h3>
-                    <div class="stats-grid" id="generalStats">
-                        <!-- Preenchido via JavaScript -->
-                    </div>
-                </div>
-                
-                <div class="dashboard-card">
-                    <h3>🎯 Taxa de Acertos</h3>
-                    <div id="accuracyStats">
-                        <!-- Preenchido via JavaScript -->
-                    </div>
-                </div>
-                
-                <div class="dashboard-card">
-                    <h3>🏥 Tipos de Exame</h3>
-                    <div id="examTypeStats">
-                        <!-- Preenchido via JavaScript -->
-                    </div>
-                </div>
-                
-                <div class="dashboard-card">
-                    <h3>📊 Performance por Tipo</h3>
-                    <div id="performanceStats">
-                        <!-- Preenchido via JavaScript -->
-                    </div>
-                </div>
-                
-                <div class="dashboard-card" style="grid-column: span 2;">
-                    <h3>📋 Diagnósticos Mais Frequentes</h3>
-                    <div class="diagnosis-list" id="diagnosisStats">
-                        <!-- Preenchido via JavaScript -->
-                    </div>
-                </div>
-                
-                <div class="dashboard-card" style="grid-column: span 2;">
-                    <h3>📅 Resumo por Dia de Estudo</h3>
-                    <div class="daily-summary" id="dailySummary">
-                        <!-- Preenchido via JavaScript -->
-                    </div>
-                </div>
-                
-                <div class="dashboard-card" style="grid-column: span 2;">
-                    <h3>💡 Pontos de Aprendizado</h3>
-                    <div class="diagnosis-list" id="learningPointsList">
-                        <!-- Preenchido via JavaScript -->
-                    </div>
-                </div>
+
+            <div class="search-container" style="margin-top: 20px;">
+                <input type="text" id="searchInput" placeholder="Buscar por paciente, diagnóstico ou tipo..." style="max-width: 400px;">
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="casos-table" id="casosTable">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Paciente</th>
+                            <th>Tipo Exame</th>
+                            <th>Diagnóstico</th>
+                            <th>Acerto</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="casosTableBody"></tbody>
+                </table>
             </div>
         </div>
-        
-        <!-- ABA: LISTA DE EXAMES -->
-        <div id="exams-tab" class="tab-content">
-            <div class="search-container">
-                <input type="text" id="searchInput" placeholder="Buscar por paciente, diagnóstico ou tipo de exame...">
-            </div>
 
-            <div class="sort-info" id="sortInfo">
-                Ordenado por: <strong>Data do Estudo (mais recente primeiro)</strong>
+        <!-- ABA RELATÓRIOS -->
+        <div id="relatorios" class="tab-content">
+            <div class="stats-grid" id="resumoGeral"></div>
+            <div class="chart-box full-width" style="margin-top: 20px; height: 400px;">
+                <h3>Evolução de Acertos vs Erros</h3>
+                <canvas id="chartEvolucao"></canvas>
             </div>
-
-            <table id="examsTable">
-                <thead>
-                    <tr>
-                        <th class="sortable" onclick="sortTable('examDate')">
-                            Data do Exame
-                            <span class="sort-icon" id="sortExamDate">↓</span>
-                        </th>
-                        <th class="sortable" onclick="sortTable('studyDate')">
-                            Data do Estudo
-                            <span class="sort-icon" id="sortStudyDate">↓</span>
-                        </th>
-                        <th class="sortable" onclick="sortTable('patientName')">
-                            Paciente
-                            <span class="sort-icon" id="sortPatientName"></span>
-                        </th>
-                        <th class="sortable" onclick="sortTable('examType')">
-                            Tipo de Exame
-                            <span class="sort-icon" id="sortExamType"></span>
-                        </th>
-                        <th class="sortable" onclick="sortTable('diagnosis')">
-                            Seu Diagnóstico
-                            <span class="sort-icon" id="sortDiagnosis"></span>
-                        </th>
-                        <th class="sortable" onclick="sortTable('diagnosisAccuracy')">
-                            Acerto
-                            <span class="sort-icon" id="sortDiagnosisAccuracy"></span>
-                        </th>
-                        <th>Observações</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="examsTableBody">
-                    <!-- Os dados serão inseridos aqui via JavaScript -->
-                </tbody>
-            </table>
         </div>
     </div>
 
     <script>
-        // CONFIGURAÇÃO DO FIREBASE
+        // CONFIGURAÇÃO FIREBASE (MESMO DO SEU RESSONANCIA)
         const firebaseConfig = {
             apiKey: "AIzaSyDsDJ5w4yLYRGqZAmibjbwvwYnOusELPzI",
             authDomain: "controle-ressonancias-leo.firebaseapp.com",
@@ -507,454 +313,348 @@
             messagingSenderId: "938712929681",
             appId: "1:938712929681:web:fb4d415ae39ef48862b630"
         };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
 
-        // Initialize Firebase
-        let app;
-        let db;
-        let firebaseConnected = false;
-
-        try {
-            app = firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            firebaseConnected = true;
-        } catch (error) {
-            console.log('Firebase não pôde ser inicializado:', error);
-            firebaseConnected = false;
-        }
-
-        let exams = [];
-        let editingIndex = -1;
-        
-        // VARIÁVEIS DE ORDENAÇÃO
-        let currentSort = {
-            field: 'studyDate',
-            direction: 'desc' // 'asc' ou 'desc'
+        // LISTA COMPLETA DE SEGMENTOS DE RESSONÂNCIA
+        const segmentosRM = {
+            'cranio': { nome: 'CRÂNIO/ENCÉFALO' },
+            'neurosseio': { nome: 'NEUROSSEIO/SELAR' },
+            'orbita': { nome: 'ÓRBITAS' },
+            'face-senos': { nome: 'FACE/SENIOS' },
+            'atm': { nome: 'ATM' },
+            'pescoco': { nome: 'PESCOCO/PARTES MOLES' },
+            'coluna-cervical': { nome: 'COLUNA CERVICAL' },
+            'coluna-toracica': { nome: 'COLUNA TORÁCICA' },
+            'coluna-lombar': { nome: 'COLUNA LOMBAR' },
+            'coracao': { nome: 'CORAÇÃO/CARDIO' },
+            'torax-mama': { nome: 'TÓRAX/MAMA' },
+            'abdomen-superior': { nome: 'ABDOME SUP (Fígado/Pâncreas)' },
+            'abdomen-inferior': { nome: 'ABDOME INF (Rins/Adrenal)' },
+            'pelve-feminina': { nome: 'PELVE FEMININA' },
+            'pelve-masculina': { nome: 'PRÓSTATA/PELVE MASC' },
+            'ombro': { nome: 'OMBRO' },
+            'cotovelo': { nome: 'COTOVELO' },
+            'punho-mao': { nome: 'PUNHO/MÃO' },
+            'quadril': { nome: 'QUADRIL/BACIA' },
+            'joelho': { nome: 'JOELHO' },
+            'tornozelo-pe': { nome: 'TORNOZELO/PÉ' },
+            'artro-geral': { nome: 'ARTRORESSONÂNCIA' },
+            'angio-geral': { nome: 'ANGIORRESSONÂNCIA' }
         };
 
-        // ELEMENTOS DO DOM
-        const examForm = document.getElementById('examForm');
-        const examsTableBody = document.getElementById('examsTableBody');
-        const clearFormBtn = document.getElementById('clearForm');
-        const searchInput = document.getElementById('searchInput');
+        let dadosApp = { tempos: {}, casos: [] };
+        let chartSegmentos = null, chartAtividades = null, chartEvolucao = null;
+        let currentView = 'day';
+        
+        let totalSeconds = 0;
+        let currentSeconds = 0;
+        let currentInterval = null;
+        let isCurrentRunning = true;
+
         const syncStatus = document.getElementById('sync-status');
-        const sortInfo = document.getElementById('sortInfo');
-        const firebaseWarning = document.getElementById('firebaseWarning');
+        const dataEstudoInput = document.getElementById('data-estudo');
+        const hoje = new Date();
+        const hojeStr = `${hoje.getFullYear()}-${(hoje.getMonth()+1).toString().padStart(2,'0')}-${hoje.getDate().toString().padStart(2,'0')}`;
+        dataEstudoInput.value = hojeStr;
 
-        // ========== SISTEMA DE DADOS COM FALLBACK ==========
-
-        // FUNÇÃO PARA SALVAR DADOS (Firebase + localStorage)
-        async function salvarDados() {
-            try {
-                syncStatus.className = 'sync-status sync-loading';
-                syncStatus.textContent = '🔄 Salvando dados...';
-                
-                // Salva no localStorage (sempre funciona)
-                localStorage.setItem('estudosRessonancia', JSON.stringify(exams));
-                
-                // Tenta salvar no Firebase se estiver conectado
-                if (firebaseConnected && db) {
-                    try {
-                        const batch = db.batch();
-                        const collectionRef = db.collection('estudosRessonancia');
-                        
-                        // Limpa a coleção atual
-                        const snapshot = await collectionRef.get();
-                        snapshot.forEach(doc => {
-                            batch.delete(doc.ref);
-                        });
-                        
-                        // Adiciona todos os exames atuais
-                        exams.forEach(exam => {
-                            const docRef = collectionRef.doc(exam.id);
-                            batch.set(docRef, exam);
-                        });
-                        
-                        await batch.commit();
-                        
-                        syncStatus.className = 'sync-status sync-success';
-                        syncStatus.textContent = '✅ Dados salvos e sincronizados!';
-                        firebaseWarning.style.display = 'none';
-                        return true;
-                    } catch (firebaseError) {
-                        console.log('Erro ao salvar no Firebase, usando localStorage:', firebaseError);
-                        syncStatus.className = 'sync-status sync-warning';
-                        syncStatus.textContent = '⚠️ Salvo localmente (Firebase com problema)';
-                        firebaseWarning.style.display = 'block';
-                        return true;
-                    }
-                } else {
-                    syncStatus.className = 'sync-status sync-warning';
-                    syncStatus.textContent = '⚠️ Salvo localmente (Firebase não disponível)';
-                    firebaseWarning.style.display = 'block';
-                    return true;
+        function formatTime(s) {
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+        }
+        function updateTotalDisplay() { document.getElementById('total-timer-display').textContent = formatTime(totalSeconds); }
+        function updateCurrentDisplay() { document.getElementById('current-timer-display').textContent = formatTime(currentSeconds); }
+        
+        function startCurrentTimer() {
+            if(currentInterval) clearInterval(currentInterval);
+            currentInterval = setInterval(() => {
+                if(isCurrentRunning) {
+                    currentSeconds++;
+                    updateCurrentDisplay();
                 }
-                
-            } catch (error) {
-                console.error('Erro ao salvar dados:', error);
-                syncStatus.className = 'sync-status sync-error';
-                syncStatus.textContent = '❌ Erro ao salvar dados';
-                return false;
-            }
+            }, 1000);
+        }
+        function togglePauseCurrentTimer() {
+            isCurrentRunning = !isCurrentRunning;
+            document.getElementById('btn-pause-current').textContent = isCurrentRunning ? '⏸ Pausar' : '▶ Retomar';
+            document.getElementById('timer-box').classList.toggle('paused', !isCurrentRunning);
+        }
+        function resetCurrentTimer() {
+            currentSeconds = 0; updateCurrentDisplay();
+            if(!isCurrentRunning) togglePauseCurrentTimer();
         }
 
-        // FUNÇÃO PARA CARREGAR DADOS (Firebase + localStorage)
+        function showNotification(msg, type = 'success') {
+            const el = document.createElement('div');
+            el.className = 'temp-notification';
+            el.textContent = msg;
+            el.style.background = type === 'success' ? '#27ae60' : (type === 'warning' ? '#f39c12' : '#e74c3c');
+            document.body.appendChild(el); 
+            setTimeout(() => el.remove(), 3500);
+        }
+
+        function popularSegmentos() {
+            const cont = document.getElementById('timer-segmentos-container');
+            cont.innerHTML = '';
+            Object.entries(segmentosRM).forEach(([k, v]) => {
+                const label = document.createElement('label');
+                label.className = 'check-item';
+                label.innerHTML = `<input type="checkbox" value="${k}"> ${v.nome}`;
+                cont.appendChild(label);
+            });
+        }
+
         async function carregarDados() {
             try {
-                syncStatus.className = 'sync-status sync-loading';
-                syncStatus.textContent = '🔄 Carregando dados...';
-                
-                let dadosCarregados = false;
-                
-                // Tenta carregar do Firebase primeiro
-                if (firebaseConnected && db) {
-                    try {
-                        const snapshot = await db.collection('estudosRessonancia').get();
-                        exams = [];
-                        snapshot.forEach(doc => {
-                            exams.push({ id: doc.id, ...doc.data() });
-                        });
-                        
-                        if (exams.length > 0) {
-                            syncStatus.className = 'sync-status sync-success';
-                            syncStatus.textContent = '✅ Dados carregados do Firebase!';
-                            firebaseWarning.style.display = 'none';
-                            dadosCarregados = true;
-                        }
-                    } catch (firebaseError) {
-                        console.log('Erro ao carregar do Firebase:', firebaseError);
-                    }
+                atualizarStatus("Conectando...", "loading");
+                const doc = await db.collection('controles').doc('estudosRessonancia').get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    dadosApp.tempos = data.tempos || {};
+                    dadosApp.casos = data.casos || [];
+                } else { 
+                    const local = localStorage.getItem('estudosRessonancia'); 
+                    if(local) dadosApp = JSON.parse(local); 
                 }
-                
-                // Se não conseguiu carregar do Firebase, tenta do localStorage
-                if (!dadosCarregados) {
-                    const dadosLocais = localStorage.getItem('estudosRessonancia');
-                    if (dadosLocais) {
-                        exams = JSON.parse(dadosLocais);
-                        syncStatus.className = 'sync-status sync-warning';
-                        syncStatus.textContent = '📱 Dados carregados do backup local';
-                        firebaseWarning.style.display = 'block';
-                        dadosCarregados = true;
-                    } else {
-                        exams = [];
-                        syncStatus.className = 'sync-status sync-success';
-                        syncStatus.textContent = '✨ Sistema pronto para uso!';
-                    }
-                }
-                
-                applySorting();
-                renderTable();
-                if (document.getElementById('dashboard-tab').classList.contains('active')) {
-                    updateDashboard();
-                }
-                
-            } catch (error) {
-                console.error('Erro ao carregar dados:', error);
-                syncStatus.className = 'sync-status sync-error';
-                syncStatus.textContent = '❌ Erro ao carregar dados';
-            }
-        }
-
-        // FUNÇÃO PARA EXCLUIR EXAME
-        async function deleteExam(index) {
-            if (confirm('Tem certeza que deseja excluir este estudo?')) {
-                try {
-                    exams.splice(index, 1);
-                    await salvarDados();
-                    applySorting();
-                    renderTable();
-                    if (document.getElementById('dashboard-tab').classList.contains('active')) {
-                        updateDashboard();
-                    }
-                } catch (error) {
-                    console.error('Erro ao excluir estudo:', error);
-                    alert('Erro ao excluir estudo');
-                }
-            }
-        }
-
-        // ========== SISTEMA DE ORDENAÇÃO ==========
-
-        function sortTable(field) {
-            if (currentSort.field === field) {
-                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-            } else {
-                currentSort.field = field;
-                currentSort.direction = 'asc';
+                atualizarStatus("Sincronizado", "success");
+            } catch (e) {
+                const local = localStorage.getItem('estudosRessonancia');
+                if(local) dadosApp = JSON.parse(local);
+                atualizarStatus("Offline (Local)", "error");
             }
             
-            applySorting();
-            updateSortIcons();
-            updateSortInfo();
-            renderTable();
+            const savedTotal = localStorage.getItem(`totalEstudoRM_${hojeStr}`);
+            totalSeconds = savedTotal ? parseInt(savedTotal) : 0;
+            updateTotalDisplay();
+            
+            popularSegmentos();
+            atualizarGraficos();
+            renderCasos();
+            startCurrentTimer();
         }
 
-        function applySorting() {
-            exams.sort((a, b) => {
-                let valueA = a[currentSort.field];
-                let valueB = b[currentSort.field];
-                
-                if (currentSort.field.includes('Date')) {
-                    valueA = new Date(valueA).getTime();
-                    valueB = new Date(valueB).getTime();
+        async function salvarDados() {
+            try { 
+                await db.collection('controles').doc('estudosRessonancia').set(dadosApp); 
+                localStorage.setItem('estudosRessonancia', JSON.stringify(dadosApp)); 
+                localStorage.setItem(`totalEstudoRM_${dataEstudoInput.value}`, totalSeconds.toString());
+                atualizarStatus("Salvo!", "success"); 
+            } catch (e) { 
+                localStorage.setItem('estudosRessonancia', JSON.stringify(dadosApp)); 
+                atualizarStatus("Salvo Local", "error"); 
+            }
+        }
+
+        async function finalizarSessaoEstudo() {
+            const atividade = document.getElementById('timer-atividade').value;
+            const checkboxes = document.querySelectorAll('#timer-segmentos-container input:checked');
+            const data = dataEstudoInput.value;
+            
+            if (!atividade) { showNotification("Selecione a ATIVIDADE!", "error"); return; }
+            if (checkboxes.length === 0) { showNotification("Selecione ao menos 1 SEGMENTO!", "error"); return; }
+            
+            const tempoGasto = currentSeconds;
+            if(tempoGasto < 1) { showNotification("Tempo insuficiente!", "warning"); return; }
+            
+            totalSeconds += tempoGasto;
+            updateTotalDisplay();
+            localStorage.setItem(`totalEstudoRM_${data}`, totalSeconds.toString());
+            
+            if (!dadosApp.tempos[data]) dadosApp.tempos[data] = [];
+            
+            const tempoDividido = tempoGasto / checkboxes.length;
+            checkboxes.forEach(cb => {
+                dadosApp.tempos[data].push({
+                    atividade: atividade,
+                    segmento: cb.value,
+                    tempo: tempoDividido
+                });
+            });
+            
+            showNotification(`✅ Sessão de ${formatTime(tempoGasto)} salva!`);
+            document.getElementById('timer-atividade').value = "";
+            checkboxes.forEach(cb => cb.checked = false);
+            resetCurrentTimer();
+            await salvarDados();
+            atualizarGraficos();
+        }
+
+        // GRÁFICOS
+        function getDateRange(view) {
+            const selectedDate = new Date(dataEstudoInput.value + "T00:00:00"); 
+            let start, end;
+            if (view === 'day') { start = new Date(selectedDate); end = new Date(selectedDate); }
+            else if (view === 'week') {
+                const day = selectedDate.getDay(); 
+                const diff = selectedDate.getDate() - day + (day === 0 ? -6 : 1);
+                start = new Date(selectedDate.setDate(diff)); start.setHours(0,0,0,0); 
+                end = new Date(start); end.setDate(end.getDate() + 6);
+            } else { start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1); end = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0); }
+            return { start, end };
+        }
+        function setGraphView(view) {
+            currentView = view;
+            document.querySelectorAll('.filter-btn').forEach(btn => { 
+                btn.classList.toggle('active', btn.textContent.toLowerCase().includes(view.substring(0,3))); 
+            });
+            atualizarGraficos();
+        }
+
+        function atualizarGraficos() {
+            const { start, end } = getDateRange(currentView);
+            let filteredTempos = [];
+            
+            Object.keys(dadosApp.tempos).forEach(dateStr => {
+                const d = new Date(dateStr + "T00:00:00");
+                if (d >= start && d <= end) {
+                    filteredTempos.push(...dadosApp.tempos[dateStr]);
                 }
-                
-                if (typeof valueA === 'string') {
-                    valueA = valueA.toLowerCase();
-                    valueB = valueB.toLowerCase();
-                }
-                
-                if (valueA === undefined || valueA === null) valueA = '';
-                if (valueB === undefined || valueB === null) valueB = '';
-                
-                let result = 0;
-                if (valueA < valueB) result = -1;
-                if (valueA > valueB) result = 1;
-                
-                return currentSort.direction === 'desc' ? -result : result;
+            });
+
+            // Gráfico Segmentos
+            const segLabels = Object.values(segmentosRM).map(s => s.nome);
+            const segData = new Array(segLabels.length).fill(0);
+            filteredTempos.forEach(t => {
+                const idx = Object.keys(segmentosRM).indexOf(t.segmento);
+                if(idx !== -1) segData[idx] += t.tempo / 60; // em minutos
+            });
+
+            if(chartSegmentos) chartSegmentos.destroy();
+            chartSegmentos = new Chart(document.getElementById('chartSegmentos'), {
+                type: 'bar', data: { labels: segLabels, datasets: [{ label: 'Minutos', data: segData, backgroundColor: '#3498db' }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            });
+
+            // Gráfico Atividades
+            const atvLabels = ['Imagens', 'Livro', 'Videoaula', 'Pré-Laudo', 'Caso Clínico'];
+            const atvKeys = ['imagens-pacientes', 'leitura-livro', 'video-aula', 'pre-laudo', 'estudo-caso'];
+            const atvData = new Array(atvLabels.length).fill(0);
+            const atvCores = ['#e74c3c', '#f39c12', '#9b59b6', '#27ae60', '#3498db'];
+            
+            filteredTempos.forEach(t => {
+                const idx = atvKeys.indexOf(t.atividade);
+                if(idx !== -1) atvData[idx] += t.tempo / 60;
+            });
+
+            if(chartAtividades) chartAtividades.destroy();
+            chartAtividades = new Chart(document.getElementById('chartAtividades'), {
+                type: 'doughnut', data: { labels: atvLabels, datasets: [{ data: atvData, backgroundColor: atvCores }] },
+                options: { responsive: true, maintainAspectRatio: false }
             });
         }
 
-        function updateSortIcons() {
-            document.querySelectorAll('.sort-icon').forEach(icon => {
-                icon.textContent = '';
-            });
-            
-            const currentIcon = document.getElementById(`sort${capitalizeFirstLetter(currentSort.field)}`);
-            if (currentIcon) {
-                currentIcon.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
-            }
-        }
-
-        function updateSortInfo() {
-            const fieldNames = {
-                'examDate': 'Data do Exame',
-                'studyDate': 'Data do Estudo', 
-                'patientName': 'Paciente',
-                'examType': 'Tipo de Exame',
-                'diagnosis': 'Diagnóstico',
-                'diagnosisAccuracy': 'Acerto'
-            };
-            
-            const directionText = currentSort.direction === 'asc' ? 'crescente' : 'decrescente';
-            sortInfo.innerHTML = `Ordenado por: <strong>${fieldNames[currentSort.field]} (${directionText})</strong>`;
-        }
-
-        function capitalizeFirstLetter(string) {
-            return string.charAt(0).toUpperCase() + string.slice(1);
-        }
-
-        // ========== FUNÇÕES DA INTERFACE ==========
-
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            document.getElementById(tabName + '-tab').classList.add('active');
-            event.currentTarget.classList.add('active');
-            
-            if (tabName === 'dashboard') {
-                updateDashboard();
-            }
-        }
-
+        // CASOS CLÍNICOS
         function toggleCorrectDiagnosis() {
-            const accuracy = document.getElementById('diagnosisAccuracy').value;
-            const correctDiagnosisGroup = document.getElementById('correctDiagnosisGroup');
-            const learningPointsGroup = document.getElementById('learningPointsGroup');
-            
-            if (accuracy === 'correct') {
-                correctDiagnosisGroup.style.display = 'none';
-                learningPointsGroup.style.display = 'none';
-            } else {
-                correctDiagnosisGroup.style.display = 'block';
-                learningPointsGroup.style.display = 'block';
-            }
+            const acc = document.getElementById('diagnosisAccuracy').value;
+            document.getElementById('correctDiagnosisGroup').style.display = (acc === 'incorrect' || acc === 'partial') ? 'block' : 'none';
         }
 
-        function renderTable(filteredExams = null) {
-            const dataToRender = filteredExams || exams;
-            examsTableBody.innerHTML = '';
-            
-            if (dataToRender.length === 0) {
-                examsTableBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Nenhum estudo registrado</td></tr>';
-                return;
-            }
-            
-            dataToRender.forEach((exam, index) => {
-                const row = document.createElement('tr');
-                
-                let accuracyBadge = '';
-                if (exam.diagnosisAccuracy === 'correct') {
-                    accuracyBadge = '<span class="accuracy-badge accuracy-correct">✅ Acertou</span>';
-                } else if (exam.diagnosisAccuracy === 'partial') {
-                    accuracyBadge = '<span class="accuracy-badge accuracy-partial">⚠️ Parcial</span>';
-                } else if (exam.diagnosisAccuracy === 'incorrect') {
-                    accuracyBadge = '<span class="accuracy-badge accuracy-incorrect">❌ Errou</span>';
-                }
-                
-                row.innerHTML = `
-                    <td>${formatDate(exam.examDate)}</td>
-                    <td>${formatDate(exam.studyDate)}</td>
-                    <td>${exam.patientName}</td>
-                    <td>${exam.examType}</td>
-                    <td>${exam.diagnosis}</td>
-                    <td>${accuracyBadge}</td>
-                    <td>${exam.observations || '-'}</td>
-                    <td class="actions">
-                        <button class="btn-edit" onclick="editExam(${index})">Editar</button>
-                        <button class="btn-delete" onclick="deleteExam(${index})">Excluir</button>
-                    </td>
-                `;
-                examsTableBody.appendChild(row);
-            });
-        }
-
-        function formatDate(dateString) {
-            const [year, month, day] = dateString.split('-');
-            return `${day}/${month}/${year}`;
-        }
-
-        // EVENTO DE SUBMIT DO FORMULÁRIO
-        examForm.addEventListener('submit', async function(e) {
+        document.getElementById('examForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
-            const examData = {
+            const novoCaso = {
                 patientName: document.getElementById('patientName').value,
                 examType: document.getElementById('examType').value,
                 examDate: document.getElementById('examDate').value,
-                studyDate: document.getElementById('studyDate').value,
                 diagnosis: document.getElementById('diagnosis').value,
-                diagnosisAccuracy: document.getElementById('diagnosisAccuracy').value,
+                accuracy: document.getElementById('diagnosisAccuracy').value,
                 correctDiagnosis: document.getElementById('correctDiagnosis').value,
-                learningPoints: document.getElementById('learningPoints').value,
-                observations: document.getElementById('observations').value,
-                timestamp: new Date().toISOString()
+                learningPoints: document.getElementById('learningPoints').value
             };
-            
-            if (editingIndex === -1) {
-                // Adicionar novo
-                examData.id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-                exams.push(examData);
-            } else {
-                // Editar existente
-                exams[editingIndex] = { ...exams[editingIndex], ...examData };
-            }
-            
-            const success = await salvarDados();
-            
-            if (success) {
-                applySorting();
-                renderTable();
-                examForm.reset();
-                toggleCorrectDiagnosis();
-                editingIndex = -1;
-                document.querySelector('button[type="submit"]').textContent = 'Adicionar Estudo';
-            }
+            dadosApp.casos.push(novoCaso);
+            await salvarDados();
+            renderCasos();
+            this.reset();
+            toggleCorrectDiagnosis();
+            showNotification("Caso clínico adicionado!");
         });
 
-        // FUNÇÃO PARA EDITAR
-        window.editExam = function(index) {
-            const exam = exams[index];
-            
-            document.getElementById('patientName').value = exam.patientName;
-            document.getElementById('examType').value = exam.examType;
-            document.getElementById('examDate').value = exam.examDate;
-            document.getElementById('studyDate').value = exam.studyDate;
-            document.getElementById('diagnosis').value = exam.diagnosis;
-            document.getElementById('diagnosisAccuracy').value = exam.diagnosisAccuracy;
-            document.getElementById('correctDiagnosis').value = exam.correctDiagnosis || '';
-            document.getElementById('learningPoints').value = exam.learningPoints || '';
-            document.getElementById('observations').value = exam.observations || '';
-            
-            editingIndex = index;
-            document.querySelector('button[type="submit"]').textContent = 'Atualizar Estudo';
-            
+        document.getElementById('clearForm').addEventListener('click', function() {
+            document.getElementById('examForm').reset();
             toggleCorrectDiagnosis();
-            switchTab('form');
-        };
+        });
 
-        // FUNÇÃO DE BUSCA
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            
-            if (searchTerm === '') {
-                renderTable();
+        function renderCasos(filtro = '') {
+            const tbody = document.getElementById('casosTableBody');
+            tbody.innerHTML = '';
+            const casosFiltrados = dadosApp.casos.filter(c => 
+                c.patientName.toLowerCase().includes(filtro) || 
+                c.diagnosis.toLowerCase().includes(filtro) || 
+                c.examType.toLowerCase().includes(filtro)
+            );
+
+            if(casosFiltrados.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Nenhum caso registrado.</td></tr>';
                 return;
             }
-            
-            const filteredExams = exams.filter(exam => 
-                exam.patientName.toLowerCase().includes(searchTerm) ||
-                exam.diagnosis.toLowerCase().includes(searchTerm) ||
-                exam.examType.toLowerCase().includes(searchTerm) ||
-                (exam.observations && exam.observations.toLowerCase().includes(searchTerm)) ||
-                (exam.correctDiagnosis && exam.correctDiagnosis.toLowerCase().includes(searchTerm)) ||
-                (exam.learningPoints && exam.learningPoints.toLowerCase().includes(searchTerm))
-            );
-            
-            renderTable(filteredExams);
-        });
 
-        // FUNÇÃO PARA LIMPAR FORMULÁRIO
-        clearFormBtn.addEventListener('click', function() {
-            examForm.reset();
-            editingIndex = -1;
-            document.querySelector('button[type="submit"]').textContent = 'Adicionar Estudo';
-            toggleCorrectDiagnosis();
-        });
+            casosFiltrados.slice().reverse().forEach((caso, index) => {
+                let badge = '';
+                if(caso.accuracy === 'correct') badge = '<span class="accuracy-badge accuracy-correct">Acertou</span>';
+                else if(caso.accuracy === 'partial') badge = '<span class="accuracy-badge accuracy-partial">Parcial</span>';
+                else if(caso.accuracy === 'incorrect') badge = '<span class="accuracy-badge accuracy-incorrect">Errou</span>';
 
-        // FUNÇÕES DO DASHBOARD
-        function updateDashboard() {
-            const totalExams = exams.length;
-            const correct = exams.filter(exam => exam.diagnosisAccuracy === 'correct').length;
-            const partial = exams.filter(exam => exam.diagnosisAccuracy === 'partial').length;
-            const incorrect = exams.filter(exam => exam.diagnosisAccuracy === 'incorrect').length;
-            const totalWithAccuracy = correct + partial + incorrect;
-            const accuracyRate = totalWithAccuracy > 0 ? Math.round((correct + partial * 0.5) / totalWithAccuracy * 100) : 0;
-            
-            document.getElementById('generalStats').innerHTML = `
-                <div class="stat-item">
-                    <div class="stat-number">${totalExams}</div>
-                    <div class="stat-label">Total de Estudos</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number">${accuracyRate}%</div>
-                    <div class="stat-label">Taxa de Acerto</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number">${correct}</div>
-                    <div class="stat-label">✅ Acertos</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number">${partial + incorrect}</div>
-                    <div class="stat-label">📚 Para Aprender</div>
-                </div>
-            `;
-            
-            document.getElementById('accuracyStats').innerHTML = `
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <div class="stat-number">${correct}</div>
-                        <div class="stat-label">✅ Acertos</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number">${partial}</div>
-                        <div class="stat-label">⚠️ Parciais</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number">${incorrect}</div>
-                        <div class="stat-label">❌ Erros</div>
-                    </div>
-                </div>
-            `;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${caso.examDate ? caso.examDate.split('-').reverse().join('/') : '-'}</td>
+                    <td>${caso.patientName}</td>
+                    <td>${caso.examType}</td>
+                    <td>${caso.diagnosis}</td>
+                    <td>${badge}</td>
+                    <td><button class="btn-reset" style="padding:5px 10px;" onclick="deletarCaso(${dadosApp.casos.length - 1 - index})">Excluir</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
 
-        function exportReport() {
-            alert('Relatório exportado com sucesso! Em uma versão completa, isto geraria um arquivo CSV.');
+        window.deletarCaso = async function(index) {
+            if(confirm("Excluir este caso?")) {
+                dadosApp.casos.splice(index, 1);
+                await salvarDados();
+                renderCasos();
+            }
         }
 
-        // CONFIGURAR DATA ATUAL
-        document.getElementById('studyDate').valueAsDate = new Date();
+        document.getElementById('searchInput').addEventListener('input', function() {
+            renderCasos(this.value.toLowerCase());
+        });
 
-        // CARREGAR DADOS AO INICIAR
+        // RELATÓRIOS
+        function gerarRelatorios() {
+            const total = dadosApp.casos.length;
+            const correct = dadosApp.casos.filter(c => c.accuracy === 'correct').length;
+            const partial = dadosApp.casos.filter(c => c.accuracy === 'partial').length;
+            const incorrect = dadosApp.casos.filter(c => c.accuracy === 'incorrect').length;
+            const taxa = total > 0 ? Math.round((correct + partial * 0.5) / total * 100) : 0;
+
+            document.getElementById('resumoGeral').innerHTML = `
+                <div class="stat-item"><div class="stat-number">${total}</div><div class="stat-label">Total de Casos</div></div>
+                <div class="stat-item"><div class="stat-number" style="color:#27ae60;">${correct}</div><div class="stat-label">Acertos</div></div>
+                <div class="stat-item"><div class="stat-number" style="color:#f39c12;">${partial}</div><div class="stat-label">Parciais</div></div>
+                <div class="stat-item"><div class="stat-number" style="color:#e74c3c;">${incorrect}</div><div class="stat-label">Erros</div></div>
+                <div class="stat-item"><div class="stat-number">${taxa}%</div><div class="stat-label">Taxa de Acerto</div></div>
+            `;
+
+            if(chartEvolucao) chartEvolucao.destroy();
+            chartEvolucao = new Chart(document.getElementById('chartEvolucao'), {
+                type: 'bar', data: { labels: ['Casos Clínicos'], datasets: [
+                    { label: 'Acertos', data: [correct], backgroundColor: '#27ae60' },
+                    { label: 'Parciais', data: [partial], backgroundColor: '#f39c12' },
+                    { label: 'Erros', data: [incorrect], backgroundColor: '#e74c3c' }
+                ]}, options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function abrirTab(evt, id) {
+            document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active')); 
+            document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
+            document.getElementById(id).classList.add('active'); 
+            evt.currentTarget.classList.add('active');
+            if(id === 'relatorios') gerarRelatorios();
+        }
+
+        function atualizarStatus(m, t) { syncStatus.textContent = m; syncStatus.className = `sync-status sync-${t}`; }
         document.addEventListener('DOMContentLoaded', carregarDados);
     </script>
 </body>

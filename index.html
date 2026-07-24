@@ -126,7 +126,7 @@
         .accuracy-partial { background: #fff3cd; color: #856404; }
         .accuracy-incorrect { background: #f8d7da; color: #721c24; }
         
-        .search-container { margin-bottom: 15px; }
+        .search-container { margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
         .stat-item { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; border-top: 3px solid var(--secondary); }
         .stat-number { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
@@ -292,6 +292,7 @@
 
             <div class="search-container" style="margin-top: 20px;">
                 <input type="text" id="searchInput" placeholder="Buscar por paciente, diagnóstico ou tipo..." style="max-width: 400px;">
+                <button class="btn-action" onclick="recuperarCasosAntigos()" style="font-size: 0.8rem;">🔄 Recuperar Exames Antigos</button>
             </div>
             <div style="overflow-x: auto;">
                 <table class="casos-table" id="casosTable">
@@ -460,7 +461,6 @@
             try {
                 atualizarStatus("Conectando...", "loading");
                 const doc = await db.collection('controles').doc('estudosRessonancia').get();
-                
                 if (doc.exists) {
                     const data = doc.data();
                     dadosApp.tempos = data.tempos || {};
@@ -469,36 +469,10 @@
                     const local = localStorage.getItem('estudosRessonancia'); 
                     if(local) {
                         const parsed = JSON.parse(local);
-                        if(parsed.casos) {
-                            dadosApp.tempos = parsed.tempos || {};
-                            dadosApp.casos = parsed.casos || [];
-                        } else if (Array.isArray(parsed)) {
-                            dadosApp.casos = parsed;
-                        }
+                        dadosApp.tempos = parsed.tempos || {};
+                        dadosApp.casos = parsed.casos || parsed || [];
                     }
                 }
-
-                // === RECUPERAÇÃO DE DADOS ANTIGOS ===
-                // Se não houver casos na nova estrutura, tenta buscar na estrutura antiga do Firebase
-                if ((!dadosApp.casos || dadosApp.casos.length === 0)) {
-                    try {
-                        const snapshot = await db.collection('estudosRessonancia').get();
-                        if (!snapshot.empty) {
-                            let casosAntigos = [];
-                            snapshot.forEach(doc => {
-                                casosAntigos.push(doc.data());
-                            });
-                            if (casosAntigos.length > 0) {
-                                dadosApp.casos = casosAntigos;
-                                showNotification("📂 Pacientes antigos recuperados com sucesso!", "success");
-                                await salvarDados(false); // Salva na nova estrutura sem alterar o status
-                            }
-                        }
-                    } catch (err) {
-                        console.log("Coleção antiga não encontrada ou vazia.");
-                    }
-                }
-
                 if(!dadosApp.tempos) dadosApp.tempos = {};
                 if(!dadosApp.casos) dadosApp.casos = [];
 
@@ -507,12 +481,8 @@
                 const local = localStorage.getItem('estudosRessonancia');
                 if(local) {
                     const parsed = JSON.parse(local);
-                    if(parsed.casos) {
-                        dadosApp.tempos = parsed.tempos || {};
-                        dadosApp.casos = parsed.casos || [];
-                    } else if (Array.isArray(parsed)) {
-                        dadosApp.casos = parsed;
-                    }
+                    dadosApp.tempos = parsed.tempos || {};
+                    dadosApp.casos = parsed.casos || parsed || [];
                 }
                 atualizarStatus("Offline (Local)", "error");
             }
@@ -536,6 +506,48 @@
             } catch (e) { 
                 localStorage.setItem('estudosRessonancia', JSON.stringify(dadosApp)); 
                 if(showStatus) atualizarStatus("Salvo Local", "error"); 
+            }
+        }
+
+        // NOVA FUNÇÃO PARA RECUPERAR DADOS ANTIGOS
+        async function recuperarCasosAntigos() {
+            showNotification("🔄 Buscando exames antigos...", "warning");
+            try {
+                const snapshot = await db.collection('estudosRessonancia').get();
+                if (snapshot.empty) {
+                    showNotification("Nenhum exame antigo encontrado no banco de dados.", "error");
+                    return;
+                }
+                
+                let casosAntigos = [];
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    casosAntigos.push({
+                        patientName: d.patientName || '',
+                        examType: d.examType || '',
+                        examDate: d.examDate || '',
+                        diagnosis: d.diagnosis || '',
+                        diagnosisAccuracy: d.diagnosisAccuracy || '', // Mantém o nome do campo antigo
+                        correctDiagnosis: d.correctDiagnosis || '',
+                        learningPoints: d.learningPoints || ''
+                    });
+                });
+
+                // Mescla com os atuais sem duplicar
+                const casosAtuais = dadosApp.casos || [];
+                const todosCasos = [...casosAtuais, ...casosAntigos];
+                
+                // Remove duplicatas baseadas no nome do paciente + data + diagnóstico
+                const uniqueCasos = Array.from(new Set(todosCasos.map(c => `${c.patientName}_${c.examDate}_${c.diagnosis}`)))
+                    .map(key => todosCasos.find(c => `${c.patientName}_${c.examDate}_${c.diagnosis}` === key));
+
+                dadosApp.casos = uniqueCasos;
+                await salvarDados();
+                renderCasos();
+                showNotification(`✅ ${casosAntigos.length} exames antigos recuperados!`, "success");
+            } catch (err) {
+                console.error("Erro ao recuperar:", err);
+                showNotification("❌ Erro de permissão ao buscar dados antigos.", "error");
             }
         }
 
@@ -738,7 +750,7 @@
                 examType: document.getElementById('examType').value,
                 examDate: document.getElementById('examDate').value,
                 diagnosis: document.getElementById('diagnosis').value,
-                accuracy: document.getElementById('diagnosisAccuracy').value,
+                diagnosisAccuracy: document.getElementById('diagnosisAccuracy').value, // Padronizado
                 correctDiagnosis: document.getElementById('correctDiagnosis').value,
                 learningPoints: document.getElementById('learningPoints').value
             };
@@ -771,9 +783,9 @@
 
             casosFiltrados.slice().reverse().forEach((caso, index) => {
                 let badge = '';
-                if(caso.accuracy === 'correct') badge = '<span class="accuracy-badge accuracy-correct">Acertou</span>';
-                else if(caso.accuracy === 'partial') badge = '<span class="accuracy-badge accuracy-partial">Parcial</span>';
-                else if(caso.accuracy === 'incorrect') badge = '<span class="accuracy-badge accuracy-incorrect">Errou</span>';
+                if(caso.diagnosisAccuracy === 'correct') badge = '<span class="accuracy-badge accuracy-correct">Acertou</span>';
+                else if(caso.diagnosisAccuracy === 'partial') badge = '<span class="accuracy-badge accuracy-partial">Parcial</span>';
+                else if(caso.diagnosisAccuracy === 'incorrect') badge = '<span class="accuracy-badge accuracy-incorrect">Errou</span>';
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -804,9 +816,9 @@
         function gerarRelatorios() {
             // 1. Stats de Casos Clínicos
             const total = dadosApp.casos.length;
-            const correct = dadosApp.casos.filter(c => c.accuracy === 'correct').length;
-            const partial = dadosApp.casos.filter(c => c.accuracy === 'partial').length;
-            const incorrect = dadosApp.casos.filter(c => c.accuracy === 'incorrect').length;
+            const correct = dadosApp.casos.filter(c => c.diagnosisAccuracy === 'correct').length;
+            const partial = dadosApp.casos.filter(c => c.diagnosisAccuracy === 'partial').length;
+            const incorrect = dadosApp.casos.filter(c => c.diagnosisAccuracy === 'incorrect').length;
             const taxa = total > 0 ? Math.round((correct + partial * 0.5) / total * 100) : 0;
 
             document.getElementById('resumoGeral').innerHTML = `

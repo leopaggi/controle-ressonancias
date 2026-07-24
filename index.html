@@ -460,18 +460,60 @@
             try {
                 atualizarStatus("Conectando...", "loading");
                 const doc = await db.collection('controles').doc('estudosRessonancia').get();
+                
                 if (doc.exists) {
                     const data = doc.data();
                     dadosApp.tempos = data.tempos || {};
                     dadosApp.casos = data.casos || [];
                 } else { 
                     const local = localStorage.getItem('estudosRessonancia'); 
-                    if(local) dadosApp = JSON.parse(local); 
+                    if(local) {
+                        const parsed = JSON.parse(local);
+                        if(parsed.casos) {
+                            dadosApp.tempos = parsed.tempos || {};
+                            dadosApp.casos = parsed.casos || [];
+                        } else if (Array.isArray(parsed)) {
+                            dadosApp.casos = parsed;
+                        }
+                    }
                 }
+
+                // === RECUPERAÇÃO DE DADOS ANTIGOS ===
+                // Se não houver casos na nova estrutura, tenta buscar na estrutura antiga do Firebase
+                if ((!dadosApp.casos || dadosApp.casos.length === 0)) {
+                    try {
+                        const snapshot = await db.collection('estudosRessonancia').get();
+                        if (!snapshot.empty) {
+                            let casosAntigos = [];
+                            snapshot.forEach(doc => {
+                                casosAntigos.push(doc.data());
+                            });
+                            if (casosAntigos.length > 0) {
+                                dadosApp.casos = casosAntigos;
+                                showNotification("📂 Pacientes antigos recuperados com sucesso!", "success");
+                                await salvarDados(false); // Salva na nova estrutura sem alterar o status
+                            }
+                        }
+                    } catch (err) {
+                        console.log("Coleção antiga não encontrada ou vazia.");
+                    }
+                }
+
+                if(!dadosApp.tempos) dadosApp.tempos = {};
+                if(!dadosApp.casos) dadosApp.casos = [];
+
                 atualizarStatus("Sincronizado", "success");
             } catch (e) {
                 const local = localStorage.getItem('estudosRessonancia');
-                if(local) dadosApp = JSON.parse(local);
+                if(local) {
+                    const parsed = JSON.parse(local);
+                    if(parsed.casos) {
+                        dadosApp.tempos = parsed.tempos || {};
+                        dadosApp.casos = parsed.casos || [];
+                    } else if (Array.isArray(parsed)) {
+                        dadosApp.casos = parsed;
+                    }
+                }
                 atualizarStatus("Offline (Local)", "error");
             }
             
@@ -485,15 +527,15 @@
             startCurrentTimer();
         }
 
-        async function salvarDados() {
+        async function salvarDados(showStatus = true) {
             try { 
                 await db.collection('controles').doc('estudosRessonancia').set(dadosApp); 
                 localStorage.setItem('estudosRessonancia', JSON.stringify(dadosApp)); 
                 localStorage.setItem(`totalEstudoRM_${dataEstudoInput.value}`, totalSeconds.toString());
-                atualizarStatus("Salvo!", "success"); 
+                if(showStatus) atualizarStatus("Salvo!", "success"); 
             } catch (e) { 
                 localStorage.setItem('estudosRessonancia', JSON.stringify(dadosApp)); 
-                atualizarStatus("Salvo Local", "error"); 
+                if(showStatus) atualizarStatus("Salvo Local", "error"); 
             }
         }
 
@@ -717,9 +759,9 @@
             const tbody = document.getElementById('casosTableBody');
             tbody.innerHTML = '';
             const casosFiltrados = dadosApp.casos.filter(c => 
-                c.patientName.toLowerCase().includes(filtro) || 
-                c.diagnosis.toLowerCase().includes(filtro) || 
-                c.examType.toLowerCase().includes(filtro)
+                (c.patientName && c.patientName.toLowerCase().includes(filtro)) || 
+                (c.diagnosis && c.diagnosis.toLowerCase().includes(filtro)) || 
+                (c.examType && c.examType.toLowerCase().includes(filtro))
             );
 
             if(casosFiltrados.length === 0) {
@@ -736,9 +778,9 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${caso.examDate ? caso.examDate.split('-').reverse().join('/') : '-'}</td>
-                    <td>${caso.patientName}</td>
-                    <td>${caso.examType}</td>
-                    <td>${caso.diagnosis}</td>
+                    <td>${caso.patientName || '-'}</td>
+                    <td>${caso.examType || '-'}</td>
+                    <td>${caso.diagnosis || '-'}</td>
                     <td>${badge}</td>
                     <td><button class="btn-reset" style="padding:5px 10px;" onclick="deletarCaso(${dadosApp.casos.length - 1 - index})">Excluir</button></td>
                 `;

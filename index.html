@@ -116,11 +116,14 @@
         .btn-action { background-color: var(--warning); color: white; }
         button { border: none; border-radius: 5px; cursor: pointer; padding: 8px 15px; font-weight: bold; font-size: 0.85rem; }
 
-        /* TABELAS GERAl */
+        /* TABELAS GERAl E ORDENAÇÃO */
         .casos-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; }
         .casos-table th, .casos-table td { padding: 10px; border: 1px solid #ddd; text-align: left; }
         .casos-table th { background-color: var(--primary); color: white; }
         .casos-table tr:nth-child(even) { background-color: #f9f9f9; }
+        .casos-table th.sortable { cursor: pointer; position: relative; user-select: none; padding-right: 20px; }
+        .casos-table th.sortable:hover { background-color: #3a526b; }
+        .sort-icon { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 12px; opacity: 0.8; }
         .accuracy-badge { padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
         .accuracy-correct { background: #d4edda; color: #155724; }
         .accuracy-partial { background: #fff3cd; color: #856404; }
@@ -326,12 +329,12 @@
                 <table class="casos-table" id="casosTable">
                     <thead>
                         <tr>
-                            <th>Data</th>
-                            <th>Paciente</th>
-                            <th>Instituição</th>
-                            <th>Tipo Exame</th>
-                            <th>Diagnóstico</th>
-                            <th>Acerto</th>
+                            <th class="sortable" onclick="sortCasos('examDate')">Data <span id="sort-examDate" class="sort-icon"></span></th>
+                            <th class="sortable" onclick="sortCasos('patientName')">Paciente <span id="sort-patientName" class="sort-icon"></span></th>
+                            <th class="sortable" onclick="sortCasos('instituicao')">Instituição <span id="sort-instituicao" class="sort-icon"></span></th>
+                            <th class="sortable" onclick="sortCasos('examType')">Tipo Exame <span id="sort-examType" class="sort-icon"></span></th>
+                            <th class="sortable" onclick="sortCasos('diagnosis')">Diagnóstico <span id="sort-diagnosis" class="sort-icon"></span></th>
+                            <th class="sortable" onclick="sortCasos('diagnosisAccuracy')">Acerto <span id="sort-diagnosisAccuracy" class="sort-icon"></span></th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -431,6 +434,9 @@
         let isCurrentRunning = true;
         
         let editingIndex = -1; // Variável de controle de edição
+        
+        // VARIÁVEIS DE ORDENAÇÃO
+        let currentSort = { field: 'examDate', direction: 'desc' };
 
         const syncStatus = document.getElementById('sync-status');
         const dataEstudoInput = document.getElementById('data-estudo');
@@ -825,44 +831,82 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
+        // FUNÇÃO DE ORDENAÇÃO
+        window.sortCasos = function(field) {
+            if (currentSort.field === field) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.field = field;
+                currentSort.direction = 'asc';
+            }
+            renderCasos(document.getElementById('searchInput').value.toLowerCase());
+        };
+
         function renderCasos(filtro = '') {
             const tbody = document.getElementById('casosTableBody');
-            tbody.innerHTML = '';
-            const casosFiltrados = dadosApp.casos.filter(c => 
+            let casosFiltrados = dadosApp.casos.filter(c => 
                 (c.patientName && c.patientName.toLowerCase().includes(filtro)) || 
                 (c.diagnosis && c.diagnosis.toLowerCase().includes(filtro)) || 
                 (c.examType && c.examType.toLowerCase().includes(filtro)) ||
                 (c.instituicao && c.instituicao.toLowerCase().includes(filtro))
             );
 
+            // Aplicar ordenação
+            casosFiltrados.sort((a, b) => {
+                let valA = a[currentSort.field];
+                let valB = b[currentSort.field];
+
+                if (currentSort.field === 'examDate') {
+                    valA = valA ? new Date(valA).getTime() : 0;
+                    valB = valB ? new Date(valB).getTime() : 0;
+                } else {
+                    valA = valA ? valA.toLowerCase() : '';
+                    valB = valB ? valB.toLowerCase() : '';
+                }
+
+                if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            // Atualizar ícones de ordenação
+            document.querySelectorAll('.sort-icon').forEach(icon => icon.textContent = '');
+            const activeIcon = document.getElementById(`sort-${currentSort.field}`);
+            if (activeIcon) {
+                activeIcon.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
+            }
+
             if(casosFiltrados.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Nenhum caso registrado.</td></tr>';
                 return;
             }
 
-            casosFiltrados.slice().reverse().forEach((caso, index) => {
+            // Mapeia para criar as linhas buscando o índice real no array original
+            tbody.innerHTML = casosFiltrados.map(caso => {
+                const originalIndex = dadosApp.casos.indexOf(caso);
+                
                 let badge = '';
                 if(caso.diagnosisAccuracy === 'correct') badge = '<span class="accuracy-badge accuracy-correct">Acertou</span>';
                 else if(caso.diagnosisAccuracy === 'partial') badge = '<span class="accuracy-badge accuracy-partial">Parcial</span>';
                 else if(caso.diagnosisAccuracy === 'incorrect') badge = '<span class="accuracy-badge accuracy-incorrect">Errou</span>';
 
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${caso.examDate ? caso.examDate.split('-').reverse().join('/') : '-'}</td>
-                    <td>${caso.patientName || '-'}</td>
-                    <td>${caso.instituicao || '-'}</td>
-                    <td>${caso.examType || '-'}</td>
-                    <td>${caso.diagnosis || '-'}</td>
-                    <td>${badge}</td>
-                    <td>
-                        <div class="actions-cell">
-                            <button class="btn-edit" style="padding:5px 10px;" onclick="editarCaso(${dadosApp.casos.length - 1 - index})">Editar</button>
-                            <button class="btn-reset" style="padding:5px 10px;" onclick="deletarCaso(${dadosApp.casos.length - 1 - index})">Excluir</button>
-                        </div>
-                    </td>
+                return `
+                    <tr>
+                        <td>${caso.examDate ? caso.examDate.split('-').reverse().join('/') : '-'}</td>
+                        <td>${caso.patientName || '-'}</td>
+                        <td>${caso.instituicao || '-'}</td>
+                        <td>${caso.examType || '-'}</td>
+                        <td>${caso.diagnosis || '-'}</td>
+                        <td>${badge}</td>
+                        <td>
+                            <div class="actions-cell">
+                                <button class="btn-edit" style="padding:5px 10px;" onclick="editarCaso(${originalIndex})">Editar</button>
+                                <button class="btn-reset" style="padding:5px 10px;" onclick="deletarCaso(${originalIndex})">Excluir</button>
+                            </div>
+                        </td>
+                    </tr>
                 `;
-                tbody.appendChild(tr);
-            });
+            }).join('');
         }
 
         window.deletarCaso = async function(index) {

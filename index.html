@@ -243,21 +243,46 @@
                             <input type="text" id="patientName" required>
                         </div>
                         <div class="form-group">
-                            <label for="examType">Tipo de Exame:</label>
-                            <select id="examType" required>
+                            <label for="instituicao">Instituição de Origem:</label>
+                            <select id="instituicao" required>
                                 <option value="">Selecione...</option>
-                                <option value="RM Crânio">RM Crânio</option>
-                                <option value="RM Coluna Cervical">RM Coluna Cervical</option>
-                                <option value="RM Coluna Torácica">RM Coluna Torácica</option>
-                                <option value="RM Coluna Lombar">RM Coluna Lombar</option>
-                                <option value="RM Articular (Membros)">RM Articular (Membros)</option>
-                                <option value="RM Abdômen">RM Abdômen</option>
-                                <option value="RM Pélvica">RM Pélvica</option>
-                                <option value="Angioressonância">Angioressonância</option>
-                                <option value="Outro">Outro</option>
+                                <option value="SANTA CASA">SANTA CASA</option>
+                                <option value="HURCG">HURCG</option>
+                                <option value="Outros">Outros</option>
                             </select>
                         </div>
                     </div>
+
+                    <div class="form-group">
+                        <label for="examType">Tipo de Exame / Região Avaliada:</label>
+                        <select id="examType" required>
+                            <option value="">Selecione...</option>
+                            <option value="CRÂNIO/ENCÉFALO">CRÂNIO/ENCÉFALO</option>
+                            <option value="NEUROSSEIO/SELAR">NEUROSSEIO/SELAR</option>
+                            <option value="ÓRBITAS">ÓRBITAS</option>
+                            <option value="FACE/SEIOS">FACE/SEIOS</option>
+                            <option value="ATM">ATM</option>
+                            <option value="PESCOCO/PARTES MOLES">PESCOCO/PARTES MOLES</option>
+                            <option value="COLUNA CERVICAL">COLUNA CERVICAL</option>
+                            <option value="COLUNA TORÁCICA">COLUNA TORÁCICA</option>
+                            <option value="COLUNA LOMBAR">COLUNA LOMBAR</option>
+                            <option value="CORAÇÃO/CARDIO">CORAÇÃO/CARDIO</option>
+                            <option value="TÓRAX/MAMA">TÓRAX/MAMA</option>
+                            <option value="ABDOME SUP (Fígado/Pâncreas)">ABDOME SUP (Fígado/Pâncreas)</option>
+                            <option value="ABDOME INF (Rins/Adrenal)">ABDOME INF (Rins/Adrenal)</option>
+                            <option value="PELVE FEMININA">PELVE FEMININA</option>
+                            <option value="PRÓSTATA/PELVE MASC">PRÓSTATA/PELVE MASC</option>
+                            <option value="OMBRO">OMBRO</option>
+                            <option value="COTOVELO">COTOVELO</option>
+                            <option value="PUNHO/MÃO">PUNHO/MÃO</option>
+                            <option value="QUADRIL/BACIA">QUADRIL/BACIA</option>
+                            <option value="JOELHO">JOELHO</option>
+                            <option value="TORNOZELO/PÉ">TORNOZELO/PÉ</option>
+                            <option value="ARTRORESSONÂNCIA">ARTRORESSONÂNCIA</option>
+                            <option value="ANGIORRESSONÂNCIA">ANGIORRESSONÂNCIA</option>
+                        </select>
+                    </div>
+
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="examDate">Data do Exame:</label>
@@ -300,6 +325,7 @@
                         <tr>
                             <th>Data</th>
                             <th>Paciente</th>
+                            <th>Instituição</th>
                             <th>Tipo Exame</th>
                             <th>Diagnóstico</th>
                             <th>Acerto</th>
@@ -509,7 +535,7 @@
             }
         }
 
-        // NOVA FUNÇÃO PARA RECUPERAR DADOS ANTIGOS
+        // FUNÇÃO PARA RECUPERAR DADOS ANTIGOS
         async function recuperarCasosAntigos() {
             showNotification("🔄 Buscando exames antigos...", "warning");
             try {
@@ -524,20 +550,19 @@
                     const d = doc.data();
                     casosAntigos.push({
                         patientName: d.patientName || '',
+                        instituicao: d.instituicao || 'Outros', // Padroniza instituição antiga
                         examType: d.examType || '',
                         examDate: d.examDate || '',
                         diagnosis: d.diagnosis || '',
-                        diagnosisAccuracy: d.diagnosisAccuracy || '', // Mantém o nome do campo antigo
+                        diagnosisAccuracy: d.diagnosisAccuracy || '', 
                         correctDiagnosis: d.correctDiagnosis || '',
                         learningPoints: d.learningPoints || ''
                     });
                 });
 
-                // Mescla com os atuais sem duplicar
                 const casosAtuais = dadosApp.casos || [];
                 const todosCasos = [...casosAtuais, ...casosAntigos];
                 
-                // Remove duplicatas baseadas no nome do paciente + data + diagnóstico
                 const uniqueCasos = Array.from(new Set(todosCasos.map(c => `${c.patientName}_${c.examDate}_${c.diagnosis}`)))
                     .map(key => todosCasos.find(c => `${c.patientName}_${c.examDate}_${c.diagnosis}` === key));
 
@@ -654,7 +679,7 @@
                                     if (label) { label += ': '; }
                                     let val = context.parsed.y;
                                     if (val !== null) {
-                                        let totalSec = Math.round(val * 60); // converte minutos de volta para segundos
+                                        let totalSec = Math.round(val * 60);
                                         label += formatTime(totalSec);
                                     }
                                     return label;
@@ -710,7 +735,6 @@
                 return;
             }
 
-            // Agrupar: { 'atividade': { 'segmento': tempo_total_em_segundos } }
             const agrupado = {};
             temposFiltrados.forEach(t => {
                 if(!agrupado[t.atividade]) agrupado[t.atividade] = {};
@@ -719,7 +743,6 @@
             });
 
             let html = '';
-            // Ordena as atividades para aparecerem na mesma ordem sempre
             Object.keys(nomesAtividades).forEach(atvKey => {
                 if(agrupado[atvKey]) {
                     const cor = coresAtividades[atvKey];
@@ -747,10 +770,11 @@
             e.preventDefault();
             const novoCaso = {
                 patientName: document.getElementById('patientName').value,
+                instituicao: document.getElementById('instituicao').value,
                 examType: document.getElementById('examType').value,
                 examDate: document.getElementById('examDate').value,
                 diagnosis: document.getElementById('diagnosis').value,
-                diagnosisAccuracy: document.getElementById('diagnosisAccuracy').value, // Padronizado
+                diagnosisAccuracy: document.getElementById('diagnosisAccuracy').value, 
                 correctDiagnosis: document.getElementById('correctDiagnosis').value,
                 learningPoints: document.getElementById('learningPoints').value
             };
@@ -773,11 +797,12 @@
             const casosFiltrados = dadosApp.casos.filter(c => 
                 (c.patientName && c.patientName.toLowerCase().includes(filtro)) || 
                 (c.diagnosis && c.diagnosis.toLowerCase().includes(filtro)) || 
-                (c.examType && c.examType.toLowerCase().includes(filtro))
+                (c.examType && c.examType.toLowerCase().includes(filtro)) ||
+                (c.instituicao && c.instituicao.toLowerCase().includes(filtro))
             );
 
             if(casosFiltrados.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Nenhum caso registrado.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Nenhum caso registrado.</td></tr>';
                 return;
             }
 
@@ -791,6 +816,7 @@
                 tr.innerHTML = `
                     <td>${caso.examDate ? caso.examDate.split('-').reverse().join('/') : '-'}</td>
                     <td>${caso.patientName || '-'}</td>
+                    <td>${caso.instituicao || '-'}</td>
                     <td>${caso.examType || '-'}</td>
                     <td>${caso.diagnosis || '-'}</td>
                     <td>${badge}</td>
@@ -814,7 +840,6 @@
 
         // RELATÓRIOS
         function gerarRelatorios() {
-            // 1. Stats de Casos Clínicos
             const total = dadosApp.casos.length;
             const correct = dadosApp.casos.filter(c => c.diagnosisAccuracy === 'correct').length;
             const partial = dadosApp.casos.filter(c => c.diagnosisAccuracy === 'partial').length;
@@ -829,7 +854,6 @@
                 <div class="stat-item"><div class="stat-number">${taxa}%</div><div class="stat-label">Taxa de Acerto</div></div>
             `;
 
-            // 2. Gráfico de Evolução
             if(chartEvolucao) chartEvolucao.destroy();
             chartEvolucao = new Chart(document.getElementById('chartEvolucao'), {
                 type: 'bar', data: { labels: ['Casos Clínicos'], datasets: [
@@ -839,7 +863,6 @@
                 ]}, options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // 3. Histórico de Tempo por Dia
             const histBody = document.getElementById('historicoTemposBody');
             histBody.innerHTML = '';
             const datas = Object.keys(dadosApp.tempos).sort((a, b) => new Date(b) - new Date(a));

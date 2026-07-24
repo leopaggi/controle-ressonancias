@@ -134,6 +134,9 @@
         
         .temp-notification { position: fixed; bottom: 20px; right: 20px; color: white; padding: 12px 20px; border-radius: 8px; z-index: 9999; font-weight: bold; font-size: 0.9rem; animation: slideIn 0.3s ease-out; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        .actions-cell { display: flex; gap: 5px; }
+        .btn-edit { background-color: var(--secondary); color: white; }
     </style>
 </head>
 <body>
@@ -426,6 +429,8 @@
         let currentSeconds = 0;
         let currentInterval = null;
         let isCurrentRunning = true;
+        
+        let editingIndex = -1; // Variável de controle de edição
 
         const syncStatus = document.getElementById('sync-status');
         const dataEstudoInput = document.getElementById('data-estudo');
@@ -550,7 +555,7 @@
                     const d = doc.data();
                     casosAntigos.push({
                         patientName: d.patientName || '',
-                        instituicao: d.instituicao || 'Outros', // Padroniza instituição antiga
+                        instituicao: d.instituicao || 'Outros', 
                         examType: d.examType || '',
                         examDate: d.examDate || '',
                         diagnosis: d.diagnosis || '',
@@ -639,7 +644,6 @@
                 }
             });
 
-            // Gráfico Segmentos (Empilhado por Atividade)
             const segLabels = Object.values(segmentosRM);
             const segKeys = Object.keys(segmentosRM);
             const atvKeys = Object.keys(nomesAtividades);
@@ -649,7 +653,7 @@
                 filteredTempos.forEach(t => {
                     if (t.atividade === atvKey) {
                         const idx = segKeys.indexOf(t.segmento);
-                        if(idx !== -1) data[idx] += t.tempo / 60; // em minutos
+                        if(idx !== -1) data[idx] += t.tempo / 60;
                     }
                 });
                 return {
@@ -690,7 +694,6 @@
                 }
             });
 
-            // Gráfico Atividades (Pizza)
             const atvLabels = Object.values(nomesAtividades);
             const atvData = new Array(atvLabels.length).fill(0);
             const atvCores = atvKeys.map(k => coresAtividades[k]);
@@ -768,7 +771,7 @@
 
         document.getElementById('examForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const novoCaso = {
+            const dadosCaso = {
                 patientName: document.getElementById('patientName').value,
                 instituicao: document.getElementById('instituicao').value,
                 examType: document.getElementById('examType').value,
@@ -778,18 +781,49 @@
                 correctDiagnosis: document.getElementById('correctDiagnosis').value,
                 learningPoints: document.getElementById('learningPoints').value
             };
-            dadosApp.casos.push(novoCaso);
+            
+            if (editingIndex === -1) {
+                dadosApp.casos.push(dadosCaso);
+                showNotification("Caso clínico adicionado!");
+            } else {
+                dadosApp.casos[editingIndex] = dadosCaso;
+                showNotification("Caso clínico atualizado!");
+                editingIndex = -1;
+                document.querySelector('#examForm button[type="submit"]').textContent = 'Adicionar Caso';
+            }
+            
             await salvarDados();
             renderCasos();
             this.reset();
             toggleCorrectDiagnosis();
-            showNotification("Caso clínico adicionado!");
         });
 
         document.getElementById('clearForm').addEventListener('click', function() {
             document.getElementById('examForm').reset();
             toggleCorrectDiagnosis();
+            editingIndex = -1;
+            document.querySelector('#examForm button[type="submit"]').textContent = 'Adicionar Caso';
         });
+
+        // FUNÇÃO PARA EDITAR CASO
+        window.editarCaso = function(index) {
+            const caso = dadosApp.casos[index];
+            
+            document.getElementById('patientName').value = caso.patientName || '';
+            document.getElementById('instituicao').value = caso.instituicao || '';
+            document.getElementById('examType').value = caso.examType || '';
+            document.getElementById('examDate').value = caso.examDate || '';
+            document.getElementById('diagnosis').value = caso.diagnosis || '';
+            document.getElementById('diagnosisAccuracy').value = caso.diagnosisAccuracy || '';
+            document.getElementById('correctDiagnosis').value = caso.correctDiagnosis || '';
+            document.getElementById('learningPoints').value = caso.learningPoints || '';
+            
+            editingIndex = index;
+            document.querySelector('#examForm button[type="submit"]').textContent = 'Atualizar Caso';
+            toggleCorrectDiagnosis();
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
 
         function renderCasos(filtro = '') {
             const tbody = document.getElementById('casosTableBody');
@@ -820,7 +854,12 @@
                     <td>${caso.examType || '-'}</td>
                     <td>${caso.diagnosis || '-'}</td>
                     <td>${badge}</td>
-                    <td><button class="btn-reset" style="padding:5px 10px;" onclick="deletarCaso(${dadosApp.casos.length - 1 - index})">Excluir</button></td>
+                    <td>
+                        <div class="actions-cell">
+                            <button class="btn-edit" style="padding:5px 10px;" onclick="editarCaso(${dadosApp.casos.length - 1 - index})">Editar</button>
+                            <button class="btn-reset" style="padding:5px 10px;" onclick="deletarCaso(${dadosApp.casos.length - 1 - index})">Excluir</button>
+                        </div>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });

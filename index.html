@@ -99,13 +99,6 @@
         .filter-btn { padding: 4px 12px; border-radius: 12px; background: white; border: 1px solid #ddd; cursor: pointer; font-size: 0.7rem; font-weight: bold; }
         .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
-        /* TABELA DE TEMPOS DO RELATÓRIO */
-        .relatorio-tempos-body { font-family: 'Courier New', Courier, monospace; font-size: 0.85rem; color: #555; padding: 10px; background: #fafafa; border-radius: 5px; }
-        .relatorio-atv-titulo { font-weight: bold; margin-top: 15px; font-size: 0.9rem; border-bottom: 2px solid; padding-bottom: 3px; text-transform: uppercase; }
-        .relatorio-tempos-lista { list-style: none; padding-left: 20px; margin-top: 5px; }
-        .relatorio-tempos-lista li { padding: 2px 0; display: flex; justify-content: space-between; max-width: 400px; }
-        .relatorio-tempos-lista li span:first-child { font-weight: bold; margin-right: 15px; }
-
         /* FORMULÁRIO CASOS CLÍNICOS */
         .form-container { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid var(--secondary); }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
@@ -116,6 +109,8 @@
         .btn-save { background-color: var(--success); color: white; }
         .btn-reset { background-color: var(--danger); color: white; }
         .btn-action { background-color: var(--warning); color: white; }
+        .btn-edit-small { background-color: var(--secondary); color: white; padding: 2px 8px; font-size: 0.7rem; }
+        .btn-delete-small { background-color: var(--danger); color: white; padding: 2px 8px; font-size: 0.7rem; }
         button { border: none; border-radius: 5px; cursor: pointer; padding: 8px 15px; font-weight: bold; font-size: 0.85rem; }
 
         /* TABELAS GERAl E ORDENAÇÃO */
@@ -160,7 +155,7 @@
             color: white;
             padding: 10px 15px;
             display: grid;
-            grid-template-columns: 120px 100px 1fr 1fr 80px;
+            grid-template-columns: 120px 100px 1fr 1fr 80px 130px;
             font-weight: bold;
             font-size: 0.8rem;
             text-transform: uppercase;
@@ -169,7 +164,7 @@
         .log-row {
             padding: 8px 15px;
             display: grid;
-            grid-template-columns: 120px 100px 1fr 1fr 80px;
+            grid-template-columns: 120px 100px 1fr 1fr 80px 130px;
             border-bottom: 1px solid #f0f0f0;
             font-size: 0.85rem;
             align-items: center;
@@ -178,6 +173,7 @@
         .log-row:hover { background: #f0f4f8; }
         .log-row .tempo { font-family: 'Courier New', Courier, monospace; font-weight: bold; color: var(--success); }
         .log-empty { padding: 20px; text-align: center; color: #999; }
+        .log-actions { display: flex; gap: 5px; justify-content: flex-start; flex-wrap: wrap; }
         
         @media (max-width: 768px) {
             .log-header, .log-row { grid-template-columns: 1fr; gap: 3px; }
@@ -185,9 +181,36 @@
             .log-row { padding: 12px 15px; border-bottom: 2px solid #e1e1e1; }
             .log-row .label-mobile { display: inline-block; font-weight: bold; color: var(--primary); min-width: 70px; }
             .log-row .label-mobile::after { content: ': '; }
+            .log-actions { margin-top: 5px; }
         }
         .label-mobile { display: none; }
         @media (max-width: 768px) { .label-mobile { display: inline-block; } }
+
+        /* MODAL DE EDIÇÃO */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .modal-box h3 { margin-bottom: 15px; color: var(--primary); }
+        .modal-box .form-group { margin-bottom: 12px; }
+        .modal-box .form-group label { font-size: 0.8rem; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 15px; justify-content: flex-end; }
     </style>
 </head>
 <body>
@@ -257,6 +280,7 @@
                     <span>📚 Atividade</span>
                     <span>🎯 Segmento</span>
                     <span>⏱️ Tempo</span>
+                    <span>⚙️ Ações</span>
                 </div>
                 <div id="log-sessoes-body">
                     <div class="log-empty">Nenhuma sessão registrada hoje.</div>
@@ -281,21 +305,6 @@
                         <button class="filter-btn" onclick="setGraphView('month')">Mês</button>
                     </div>
                     <div style="height: 260px;"><canvas id="chartAtividades"></canvas></div>
-                </div>
-
-                <!-- TABELA DE TEMPOS -->
-                <div class="chart-box full-width">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 2px solid #eee; padding-bottom: 4px;">
-                        <h3 style="margin: 0;">📋 Relatório de Tempos Cronometrados</h3>
-                        <div class="filter-bar" style="margin: 0;">
-                            <button class="filter-btn active" onclick="setGraphView('day')">Hoje</button>
-                            <button class="filter-btn" onclick="setGraphView('week')">Semana</button>
-                            <button class="filter-btn" onclick="setGraphView('month')">Mês</button>
-                        </div>
-                    </div>
-                    <div class="relatorio-tempos-body" id="relatorio-tempos-container">
-                        <!-- Preenchido via JS -->
-                    </div>
                 </div>
             </div>
         </div>
@@ -437,6 +446,47 @@
         </div>
     </div>
 
+    <!-- MODAL PARA EDIÇÃO DE SESSÃO -->
+    <div class="modal-overlay" id="editSessionModal">
+        <div class="modal-box">
+            <h3>✏️ Editar Sessão</h3>
+            <form id="editSessionForm">
+                <div class="form-group">
+                    <label for="edit-session-data">Data</label>
+                    <input type="date" id="edit-session-data">
+                </div>
+                <div class="form-group">
+                    <label for="edit-session-horario">Horário</label>
+                    <input type="time" id="edit-session-horario" step="60">
+                </div>
+                <div class="form-group">
+                    <label for="edit-session-atividade">Atividade</label>
+                    <select id="edit-session-atividade">
+                        <option value="imagens-pacientes">Visualização de Imagens (Pacientes Reais)</option>
+                        <option value="leitura-livro">Leitura de Livro/Atlas</option>
+                        <option value="video-aula">Assistir Videoaula/Curso</option>
+                        <option value="pre-laudo">Realizar Pré-Laudo (Prévia)</option>
+                        <option value="estudo-caso">Estudo de Caso Clínico</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-session-segmento">Segmento</label>
+                    <select id="edit-session-segmento">
+                        <!-- Preenchido via JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-session-tempo">Tempo (segundos)</label>
+                    <input type="number" id="edit-session-tempo" min="1">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-reset" onclick="fecharModalEdicao()">Cancelar</button>
+                    <button type="submit" class="btn-save">💾 Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // CONFIGURAÇÃO FIREBASE 
         const firebaseConfig = {
@@ -515,6 +565,11 @@
         
         let editingIndex = -1;
         let currentSort = { field: 'examDate', direction: 'desc' };
+        
+        // Variáveis para edição de sessão
+        let editSessionData = null;
+        let editSessionIndex = null;
+        let editSessionOriginalData = null;
 
         const syncStatus = document.getElementById('sync-status');
         const dataEstudoInput = document.getElementById('data-estudo');
@@ -532,6 +587,14 @@
             const m = Math.floor(s / 60);
             const sec = Math.round(s % 60);
             return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+        }
+        function formatTimeShort(s) {
+            const m = Math.floor(s / 60);
+            const sec = s % 60;
+            if (m > 0) {
+                return `${m}m${sec}s`;
+            }
+            return `${sec}s`;
         }
         function updateTotalDisplay() { document.getElementById('total-timer-display').textContent = formatTime(totalSeconds); }
         function updateCurrentDisplay() { document.getElementById('current-timer-display').textContent = formatTime(currentSeconds); }
@@ -564,8 +627,8 @@
             setTimeout(() => el.remove(), 3500);
         }
 
-        function popularSegmentos() {
-            const select = document.getElementById('timer-segmentos');
+        function popularSegmentos(selectElement = null) {
+            const select = selectElement || document.getElementById('timer-segmentos');
             select.innerHTML = '<option value="">Selecione...</option>';
             Object.entries(segmentosRM).forEach(([k, v]) => {
                 select.innerHTML += `<option value="${k}">${v}</option>`;
@@ -611,6 +674,8 @@
             updateTotalDisplay();
             
             popularSegmentos();
+            // Popular também o select do modal
+            popularSegmentos(document.getElementById('edit-session-segmento'));
             atualizarGraficos();
             renderCasos();
             renderLogSessoes();
@@ -669,7 +734,6 @@
             }
         }
 
-        // FUNÇÃO PARA ALTERNAR CAMPOS BASEADO NO STATUS
         function toggleStatusFields() {
             const status = document.getElementById('caseStatus').value;
             const group = document.getElementById('correctDiagnosisGroup');
@@ -722,6 +786,186 @@
             renderLogSessoes();
         }
 
+        // FUNÇÕES PARA EDITAR E REMOVER SESSÕES
+        function editarSessao(data, index) {
+            const sessoes = dadosApp.sessoes[data] || [];
+            if (index < 0 || index >= sessoes.length) return;
+            
+            const sessao = sessoes[index];
+            editSessionData = data;
+            editSessionIndex = index;
+            editSessionOriginalData = { ...sessao };
+            
+            document.getElementById('edit-session-data').value = data;
+            document.getElementById('edit-session-horario').value = sessao.horario || '00:00';
+            document.getElementById('edit-session-atividade').value = sessao.atividade || '';
+            document.getElementById('edit-session-segmento').value = sessao.segmento || '';
+            document.getElementById('edit-session-tempo').value = sessao.tempo || 0;
+            
+            document.getElementById('editSessionModal').classList.add('active');
+        }
+
+        function fecharModalEdicao() {
+            document.getElementById('editSessionModal').classList.remove('active');
+            editSessionData = null;
+            editSessionIndex = null;
+            editSessionOriginalData = null;
+        }
+
+        document.getElementById('editSessionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const data = document.getElementById('edit-session-data').value;
+            const horario = document.getElementById('edit-session-horario').value;
+            const atividade = document.getElementById('edit-session-atividade').value;
+            const segmento = document.getElementById('edit-session-segmento').value;
+            const tempo = parseInt(document.getElementById('edit-session-tempo').value);
+            
+            if (!data || !atividade || !segmento || !tempo || tempo < 1) {
+                showNotification("Preencha todos os campos corretamente!", "error");
+                return;
+            }
+            
+            // Se a data foi alterada, precisamos mover a sessão
+            if (data !== editSessionData) {
+                // Remover da data original
+                const sessoesOriginais = dadosApp.sessoes[editSessionData] || [];
+                sessoesOriginais.splice(editSessionIndex, 1);
+                if (sessoesOriginais.length === 0) {
+                    delete dadosApp.sessoes[editSessionData];
+                } else {
+                    dadosApp.sessoes[editSessionData] = sessoesOriginais;
+                }
+                
+                // Remover dos tempos da data original
+                const temposOriginais = dadosApp.tempos[editSessionData] || [];
+                // Encontrar e remover a sessão pelo horário e outros campos
+                const idxToRemove = temposOriginais.findIndex(t => 
+                    t.horario === editSessionOriginalData.horario && 
+                    t.atividade === editSessionOriginalData.atividade &&
+                    t.segmento === editSessionOriginalData.segmento &&
+                    t.tempo === editSessionOriginalData.tempo
+                );
+                if (idxToRemove !== -1) {
+                    temposOriginais.splice(idxToRemove, 1);
+                    if (temposOriginais.length === 0) {
+                        delete dadosApp.tempos[editSessionData];
+                    } else {
+                        dadosApp.tempos[editSessionData] = temposOriginais;
+                    }
+                }
+                
+                // Adicionar na nova data
+                if (!dadosApp.sessoes[data]) dadosApp.sessoes[data] = [];
+                if (!dadosApp.tempos[data]) dadosApp.tempos[data] = [];
+                
+                const novaSessao = { atividade, segmento, tempo, horario };
+                dadosApp.sessoes[data].push(novaSessao);
+                dadosApp.tempos[data].push({ ...novaSessao, timestamp: new Date().toISOString() });
+                
+                // Recalcular total do dia
+                if (data === hojeStr) {
+                    // Se for hoje, atualizar o total
+                    const totalDia = dadosApp.tempos[data].reduce((acc, s) => acc + s.tempo, 0);
+                    localStorage.setItem(`totalEstudoRM_${data}`, totalDia.toString());
+                    if (data === hojeStr) {
+                        totalSeconds = totalDia;
+                        updateTotalDisplay();
+                    }
+                }
+                
+                showNotification("✅ Sessão movida com sucesso!");
+            } else {
+                // Mesma data, apenas atualizar
+                const sessoes = dadosApp.sessoes[data] || [];
+                const tempos = dadosApp.tempos[data] || [];
+                
+                // Atualizar na lista de sessoes
+                sessoes[editSessionIndex] = { atividade, segmento, tempo, horario };
+                dadosApp.sessoes[data] = sessoes;
+                
+                // Atualizar nos tempos (encontrar pelo horário original)
+                const idxToUpdate = tempos.findIndex(t => 
+                    t.horario === editSessionOriginalData.horario && 
+                    t.atividade === editSessionOriginalData.atividade &&
+                    t.segmento === editSessionOriginalData.segmento &&
+                    t.tempo === editSessionOriginalData.tempo
+                );
+                if (idxToUpdate !== -1) {
+                    tempos[idxToUpdate] = { 
+                        atividade, segmento, tempo, horario,
+                        timestamp: new Date().toISOString()
+                    };
+                    dadosApp.tempos[data] = tempos;
+                }
+                
+                // Recalcular total do dia
+                if (data === hojeStr) {
+                    const totalDia = tempos.reduce((acc, s) => acc + s.tempo, 0);
+                    localStorage.setItem(`totalEstudoRM_${data}`, totalDia.toString());
+                    if (data === hojeStr) {
+                        totalSeconds = totalDia;
+                        updateTotalDisplay();
+                    }
+                }
+                
+                showNotification("✅ Sessão atualizada com sucesso!");
+            }
+            
+            fecharModalEdicao();
+            await salvarDados();
+            atualizarGraficos();
+            renderLogSessoes();
+        });
+
+        async function deletarSessao(data, index) {
+            if (!confirm("Tem certeza que deseja excluir esta sessão?")) return;
+            
+            const sessoes = dadosApp.sessoes[data] || [];
+            const tempos = dadosApp.tempos[data] || [];
+            
+            if (index < 0 || index >= sessoes.length) return;
+            
+            const sessaoRemovida = sessoes[index];
+            
+            // Remover da lista de sessoes
+            sessoes.splice(index, 1);
+            if (sessoes.length === 0) {
+                delete dadosApp.sessoes[data];
+            } else {
+                dadosApp.sessoes[data] = sessoes;
+            }
+            
+            // Remover dos tempos
+            const idxToRemove = tempos.findIndex(t => 
+                t.horario === sessaoRemovida.horario && 
+                t.atividade === sessaoRemovida.atividade &&
+                t.segmento === sessaoRemovida.segmento &&
+                t.tempo === sessaoRemovida.tempo
+            );
+            if (idxToRemove !== -1) {
+                tempos.splice(idxToRemove, 1);
+                if (tempos.length === 0) {
+                    delete dadosApp.tempos[data];
+                } else {
+                    dadosApp.tempos[data] = tempos;
+                }
+            }
+            
+            // Recalcular total do dia
+            if (data === hojeStr) {
+                const totalDia = tempos.reduce((acc, s) => acc + s.tempo, 0);
+                localStorage.setItem(`totalEstudoRM_${data}`, totalDia.toString());
+                totalSeconds = totalDia;
+                updateTotalDisplay();
+            }
+            
+            showNotification("🗑️ Sessão removida!");
+            await salvarDados();
+            atualizarGraficos();
+            renderLogSessoes();
+        }
+
         function renderLogSessoes() {
             const container = document.getElementById('log-sessoes-body');
             const data = dataEstudoInput.value;
@@ -739,7 +983,7 @@
                 return 0;
             });
 
-            container.innerHTML = sessoesHoje.map(s => {
+            container.innerHTML = sessoesHoje.map((s, index) => {
                 const nomeAtv = nomesAtividades[s.atividade] || s.atividade;
                 const nomeSeg = segmentosRM[s.segmento] || s.segmento;
                 const tempoFormatado = formatTime(s.tempo);
@@ -750,6 +994,10 @@
                         <span><span class="label-mobile">Atividade</span> ${nomeAtv}</span>
                         <span><span class="label-mobile">Segmento</span> ${nomeSeg}</span>
                         <span class="tempo"><span class="label-mobile">Tempo</span> ${tempoFormatado}</span>
+                        <span class="log-actions">
+                            <button class="btn-edit-small" onclick="editarSessao('${data}', ${index})">✏️</button>
+                            <button class="btn-delete-small" onclick="deletarSessao('${data}', ${index})">🗑️</button>
+                        </span>
                     </div>
                 `;
             }).join('');
@@ -870,53 +1118,9 @@
                     }
                 }
             });
-
-            gerarRelatorioTempos(filteredTempos);
-        }
-
-        function gerarRelatorioTempos(temposFiltrados) {
-            const container = document.getElementById('relatorio-tempos-container');
-            if(temposFiltrados.length === 0) {
-                container.innerHTML = '<p style="color:#999; text-align:center; padding:10px;">Nenhum estudo cronometrado neste período.</p>';
-                return;
-            }
-
-            const agrupado = {};
-            temposFiltrados.forEach(t => {
-                if(!agrupado[t.atividade]) agrupado[t.atividade] = {};
-                if(!agrupado[t.atividade][t.segmento]) agrupado[t.atividade][t.segmento] = 0;
-                agrupado[t.atividade][t.segmento] += t.tempo;
-            });
-
-            let html = '';
-            Object.keys(nomesAtividades).forEach(atvKey => {
-                if(agrupado[atvKey]) {
-                    const cor = coresAtividades[atvKey];
-                    html += `<div class="relatorio-atv-titulo" style="color: ${cor}; border-color: ${cor};">* ${nomesAtividades[atvKey]}</div>`;
-                    html += `<ul class="relatorio-tempos-lista">`;
-                    Object.keys(agrupado[atvKey]).forEach(segKey => {
-                        const nomeSeg = segmentosRM[segKey] || segKey;
-                        const tempoFormatado = formatMinSec(agrupado[atvKey][segKey]);
-                        html += `<li><span style="color: ${cor};">${tempoFormatado}</span> <span>${nomeSeg}</span></li>`;
-                    });
-                    html += `</ul>`;
-                }
-            });
-
-            container.innerHTML = html;
         }
 
         // CASOS CLÍNICOS
-        function toggleStatusFields() {
-            const status = document.getElementById('caseStatus').value;
-            const group = document.getElementById('correctDiagnosisGroup');
-            if (status === 'incorrect' || status === 'partial') {
-                group.style.display = 'block';
-            } else {
-                group.style.display = 'none';
-            }
-        }
-
         document.getElementById('examForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const dadosCaso = {

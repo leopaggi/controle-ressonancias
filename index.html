@@ -140,6 +140,47 @@
         
         .actions-cell { display: flex; gap: 5px; }
         .btn-edit { background-color: var(--secondary); color: white; }
+
+        /* ESTILOS DO LOG DE SESSÕES */
+        .log-container {
+            margin-top: 20px;
+            border: 1px solid #e1e1e1;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .log-header {
+            background: var(--primary);
+            color: white;
+            padding: 10px 15px;
+            display: grid;
+            grid-template-columns: 120px 100px 1fr 1fr 80px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .log-row {
+            padding: 8px 15px;
+            display: grid;
+            grid-template-columns: 120px 100px 1fr 1fr 80px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.85rem;
+            align-items: center;
+        }
+        .log-row:nth-child(even) { background: #fafafa; }
+        .log-row:hover { background: #f0f4f8; }
+        .log-row .tempo { font-family: 'Courier New', Courier, monospace; font-weight: bold; color: var(--success); }
+        .log-empty { padding: 20px; text-align: center; color: #999; }
+        
+        @media (max-width: 768px) {
+            .log-header, .log-row { grid-template-columns: 1fr; gap: 3px; }
+            .log-header { display: none; }
+            .log-row { padding: 12px 15px; border-bottom: 2px solid #e1e1e1; }
+            .log-row .label-mobile { display: inline-block; font-weight: bold; color: var(--primary); min-width: 70px; }
+            .log-row .label-mobile::after { content: ': '; }
+        }
+        .label-mobile { display: none; }
+        @media (max-width: 768px) { .label-mobile { display: inline-block; } }
     </style>
 </head>
 <body>
@@ -198,6 +239,20 @@
                     <div class="control-group" style="justify-content: flex-end;">
                         <button class="timer-btn btn-save" style="padding: 10px 20px; font-size: 0.9rem;" onclick="finalizarSessaoEstudo()">✅ Finalizar Sessão</button>
                     </div>
+                </div>
+            </div>
+
+            <!-- LOG DE SESSÕES -->
+            <div class="log-container">
+                <div class="log-header">
+                    <span>📅 Data</span>
+                    <span>⏰ Horário</span>
+                    <span>📚 Atividade</span>
+                    <span>🎯 Segmento</span>
+                    <span>⏱️ Tempo</span>
+                </div>
+                <div id="log-sessoes-body">
+                    <div class="log-empty">Nenhuma sessão registrada hoje.</div>
                 </div>
             </div>
 
@@ -417,14 +472,14 @@
 
         // CORES PADRÃO DAS ATIVIDADES
         const coresAtividades = {
-            'imagens-pacientes': '#e74c3c', // Vermelho
-            'leitura-livro': '#f39c12',    // Laranja
-            'video-aula': '#9b59b6',       // Roxo
-            'pre-laudo': '#27ae60',        // Verde
-            'estudo-caso': '#3498db'       // Azul
+            'imagens-pacientes': '#e74c3c',
+            'leitura-livro': '#f39c12',
+            'video-aula': '#9b59b6',
+            'pre-laudo': '#27ae60',
+            'estudo-caso': '#3498db'
         };
 
-        let dadosApp = { tempos: {}, casos: [] };
+        let dadosApp = { tempos: {}, casos: [], sessoes: {} };
         let chartSegmentos = null, chartAtividades = null, chartEvolucao = null;
         let currentView = 'day';
         
@@ -433,9 +488,7 @@
         let currentInterval = null;
         let isCurrentRunning = true;
         
-        let editingIndex = -1; // Variável de controle de edição
-        
-        // VARIÁVEIS DE ORDENAÇÃO
+        let editingIndex = -1;
         let currentSort = { field: 'examDate', direction: 'desc' };
 
         const syncStatus = document.getElementById('sync-status');
@@ -502,16 +555,19 @@
                     const data = doc.data();
                     dadosApp.tempos = data.tempos || {};
                     dadosApp.casos = data.casos || [];
+                    dadosApp.sessoes = data.sessoes || {};
                 } else { 
                     const local = localStorage.getItem('estudosRessonancia'); 
                     if(local) {
                         const parsed = JSON.parse(local);
                         dadosApp.tempos = parsed.tempos || {};
-                        dadosApp.casos = parsed.casos || parsed || [];
+                        dadosApp.casos = parsed.casos || [];
+                        dadosApp.sessoes = parsed.sessoes || {};
                     }
                 }
                 if(!dadosApp.tempos) dadosApp.tempos = {};
                 if(!dadosApp.casos) dadosApp.casos = [];
+                if(!dadosApp.sessoes) dadosApp.sessoes = {};
 
                 atualizarStatus("Sincronizado", "success");
             } catch (e) {
@@ -519,7 +575,8 @@
                 if(local) {
                     const parsed = JSON.parse(local);
                     dadosApp.tempos = parsed.tempos || {};
-                    dadosApp.casos = parsed.casos || parsed || [];
+                    dadosApp.casos = parsed.casos || [];
+                    dadosApp.sessoes = parsed.sessoes || {};
                 }
                 atualizarStatus("Offline (Local)", "error");
             }
@@ -531,6 +588,7 @@
             popularSegmentos();
             atualizarGraficos();
             renderCasos();
+            renderLogSessoes();
             startCurrentTimer();
         }
 
@@ -546,7 +604,6 @@
             }
         }
 
-        // FUNÇÃO PARA RECUPERAR DADOS ANTIGOS
         async function recuperarCasosAntigos() {
             showNotification("🔄 Buscando exames antigos...", "warning");
             try {
@@ -604,11 +661,21 @@
             
             if (!dadosApp.tempos[data]) dadosApp.tempos[data] = [];
             
-            dadosApp.tempos[data].push({
+            const agora = new Date();
+            const horario = `${agora.getHours().toString().padStart(2,'0')}:${agora.getMinutes().toString().padStart(2,'0')}`;
+            
+            const sessao = {
                 atividade: atividade,
                 segmento: segmento,
-                tempo: tempoGasto
-            });
+                tempo: tempoGasto,
+                horario: horario,
+                timestamp: agora.toISOString()
+            };
+            
+            dadosApp.tempos[data].push(sessao);
+            
+            if (!dadosApp.sessoes[data]) dadosApp.sessoes[data] = [];
+            dadosApp.sessoes[data].push(sessao);
             
             showNotification(`✅ Sessão de ${formatTime(tempoGasto)} salva!`);
             document.getElementById('timer-atividade').value = "";
@@ -616,6 +683,41 @@
             resetCurrentTimer();
             await salvarDados();
             atualizarGraficos();
+            renderLogSessoes();
+        }
+
+        function renderLogSessoes() {
+            const container = document.getElementById('log-sessoes-body');
+            const data = dataEstudoInput.value;
+            
+            const sessoesHoje = dadosApp.sessoes[data] || [];
+            
+            if (sessoesHoje.length === 0) {
+                container.innerHTML = '<div class="log-empty">Nenhuma sessão registrada hoje.</div>';
+                return;
+            }
+
+            // Ordenar por horário
+            sessoesHoje.sort((a, b) => {
+                if (a.horario < b.horario) return -1;
+                if (a.horario > b.horario) return 1;
+                return 0;
+            });
+
+            container.innerHTML = sessoesHoje.map(s => {
+                const nomeAtv = nomesAtividades[s.atividade] || s.atividade;
+                const nomeSeg = segmentosRM[s.segmento] || s.segmento;
+                const tempoFormatado = formatTime(s.tempo);
+                return `
+                    <div class="log-row">
+                        <span><span class="label-mobile">Data</span> ${data.split('-').reverse().join('/')}</span>
+                        <span><span class="label-mobile">Horário</span> ${s.horario}</span>
+                        <span><span class="label-mobile">Atividade</span> ${nomeAtv}</span>
+                        <span><span class="label-mobile">Segmento</span> ${nomeSeg}</span>
+                        <span class="tempo"><span class="label-mobile">Tempo</span> ${tempoFormatado}</span>
+                    </div>
+                `;
+            }).join('');
         }
 
         // GRÁFICOS E RELATÓRIO
@@ -811,7 +913,6 @@
             document.querySelector('#examForm button[type="submit"]').textContent = 'Adicionar Caso';
         });
 
-        // FUNÇÃO PARA EDITAR CASO
         window.editarCaso = function(index) {
             const caso = dadosApp.casos[index];
             
@@ -831,7 +932,6 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
-        // FUNÇÃO DE ORDENAÇÃO
         window.sortCasos = function(field) {
             if (currentSort.field === field) {
                 currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
@@ -851,7 +951,6 @@
                 (c.instituicao && c.instituicao.toLowerCase().includes(filtro))
             );
 
-            // Aplicar ordenação
             casosFiltrados.sort((a, b) => {
                 let valA = a[currentSort.field];
                 let valB = b[currentSort.field];
@@ -869,7 +968,6 @@
                 return 0;
             });
 
-            // Atualizar ícones de ordenação
             document.querySelectorAll('.sort-icon').forEach(icon => icon.textContent = '');
             const activeIcon = document.getElementById(`sort-${currentSort.field}`);
             if (activeIcon) {
@@ -881,7 +979,6 @@
                 return;
             }
 
-            // Mapeia para criar as linhas buscando o índice real no array original
             tbody.innerHTML = casosFiltrados.map(caso => {
                 const originalIndex = dadosApp.casos.indexOf(caso);
                 
@@ -972,6 +1069,7 @@
             document.getElementById(id).classList.add('active'); 
             evt.currentTarget.classList.add('active');
             if(id === 'relatorios') gerarRelatorios();
+            if(id === 'cronometro') renderLogSessoes();
         }
 
         function atualizarStatus(m, t) { syncStatus.textContent = m; syncStatus.className = `sync-status sync-${t}`; }

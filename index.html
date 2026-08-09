@@ -364,7 +364,8 @@
                             <option value="COLUNA TORÁCICA">COLUNA TORÁCICA</option>
                             <option value="COLUNA LOMBAR">COLUNA LOMBAR</option>
                             <option value="CORAÇÃO/CARDIO">CORAÇÃO/CARDIO</option>
-                            <option value="TÓRAX/MAMA">TÓRAX/MAMA</option>
+                            <option value="TÓRAX">TÓRAX</option>
+                            <option value="MAMA">MAMA</option>
                             <option value="ABDOME SUP (Fígado/Pâncreas)">ABDOME SUP (Fígado/Pâncreas)</option>
                             <option value="ABDOME INF (Rins/Adrenal)">ABDOME INF (Rins/Adrenal)</option>
                             <option value="PELVE FEMININA">PELVE FEMININA</option>
@@ -527,7 +528,7 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // LISTA COMPLETA DE SEGMENTOS DE RESSONÂNCIA
+        // LISTA COMPLETA DE SEGMENTOS DE RESSONÂNCIA (ATUALIZADA)
         const segmentosRM = {
             'cranio': 'CRÂNIO/ENCÉFALO',
             'neurosseio': 'NEUROSSEIO/SELAR',
@@ -539,7 +540,8 @@
             'coluna-toracica': 'COLUNA TORÁCICA',
             'coluna-lombar': 'COLUNA LOMBAR',
             'coracao': 'CORAÇÃO/CARDIO',
-            'torax-mama': 'TÓRAX/MAMA',
+            'torax': 'TÓRAX',
+            'mama': 'MAMA',
             'abdomen-superior': 'ABDOME SUP (Fígado/Pâncreas)',
             'abdomen-inferior': 'ABDOME INF (Rins/Adrenal)',
             'pelve-feminina': 'PELVE FEMININA',
@@ -624,7 +626,6 @@
         }
         
         function parseTimeToSeconds(timeStr) {
-            // Aceita formatos: "HH:MM:SS" ou "MM:SS" ou apenas segundos
             const parts = timeStr.split(':').map(Number);
             if (parts.length === 3) {
                 return parts[0] * 3600 + parts[1] * 60 + parts[2];

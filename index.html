@@ -155,16 +155,16 @@
             color: white;
             padding: 10px 15px;
             display: grid;
-            grid-template-columns: 120px 100px 1fr 1fr 80px 130px;
+            grid-template-columns: 120px 100px 100px 1fr 1fr 80px 130px;
             font-weight: bold;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         .log-row {
             padding: 8px 15px;
             display: grid;
-            grid-template-columns: 120px 100px 1fr 1fr 80px 130px;
+            grid-template-columns: 120px 100px 100px 1fr 1fr 80px 130px;
             border-bottom: 1px solid #f0f0f0;
             font-size: 0.85rem;
             align-items: center;
@@ -172,6 +172,7 @@
         .log-row:nth-child(even) { background: #fafafa; }
         .log-row:hover { background: #f0f4f8; }
         .log-row .tempo { font-family: 'Courier New', Courier, monospace; font-weight: bold; color: var(--success); }
+        .log-row .inicio { font-family: 'Courier New', Courier, monospace; font-size: 0.7rem; color: #666; }
         .log-empty { padding: 20px; text-align: center; color: #999; }
         .log-actions { display: flex; gap: 5px; justify-content: flex-start; flex-wrap: wrap; }
         
@@ -231,6 +232,19 @@
             color: #666;
             font-size: 0.85rem;
         }
+
+        /* Indicador de status do cronômetro */
+        .timer-status {
+            text-align: center;
+            font-size: 0.7rem;
+            margin-top: 6px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+        .timer-status.running { background: #d4edda; color: #155724; }
+        .timer-status.paused { background: #f8d7da; color: #721c24; }
+        .timer-status .timestamp { color: #666; font-size: 0.6rem; }
     </style>
 </head>
 <body>
@@ -260,6 +274,12 @@
                         <div class="timer-btn-group">
                             <button class="timer-btn btn-action" id="btn-pause-current" onclick="togglePauseCurrentTimer()">⏸ Pausar</button>
                             <button class="timer-btn btn-reset" onclick="resetCurrentTimer()">⟳ Reiniciar</button>
+                        </div>
+                        <div>
+                            <span class="timer-status running" id="timer-status">
+                                🟢 Rodando
+                                <span class="timestamp" id="timer-timestamp"></span>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -296,7 +316,8 @@
             <div class="log-container">
                 <div class="log-header">
                     <span>📅 Data</span>
-                    <span>⏰ Horário</span>
+                    <span>⏰ Fim</span>
+                    <span>🚀 Início</span>
                     <span>📚 Atividade</span>
                     <span>🎯 Segmento</span>
                     <span>⏱️ Tempo</span>
@@ -477,8 +498,12 @@
                     <input type="date" id="edit-session-data">
                 </div>
                 <div class="form-group">
-                    <label for="edit-session-horario">Horário</label>
-                    <input type="time" id="edit-session-horario" step="60">
+                    <label for="edit-session-horario">Horário de Início</label>
+                    <input type="time" id="edit-session-inicio" step="60">
+                </div>
+                <div class="form-group">
+                    <label for="edit-session-horario-fim">Horário de Término</label>
+                    <input type="time" id="edit-session-horario-fim" step="60">
                 </div>
                 <div class="form-group">
                     <label for="edit-session-atividade">Atividade</label>
@@ -528,7 +553,7 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // LISTA COMPLETA DE SEGMENTOS DE RESSONÂNCIA (ATUALIZADA)
+        // LISTA COMPLETA DE SEGMENTOS DE RESSONÂNCIA
         const segmentosRM = {
             'cranio': 'CRÂNIO/ENCÉFALO',
             'neurosseio': 'NEUROSSEIO/SELAR',
@@ -564,7 +589,6 @@
             'estudo-caso': 'Estudo de Caso Clínico'
         };
 
-        // CORES PADRÃO DAS ATIVIDADES
         const coresAtividades = {
             'imagens-pacientes': '#e74c3c',
             'leitura-livro': '#f39c12',
@@ -573,7 +597,6 @@
             'estudo-caso': '#3498db'
         };
 
-        // MAPEAMENTO DOS STATUS PARA EXIBIÇÃO
         const statusMap = {
             'correct': { label: '✅ Acertou', class: 'status-correct' },
             'partial': { label: '⚠️ Parcial', class: 'status-partial' },
@@ -587,15 +610,17 @@
         let currentView = 'day';
         let currentFilter = 'all';
         
+        // ===== NOVO: Sistema de timestamp para precisão =====
         let totalSeconds = 0;
-        let currentSeconds = 0;
+        let currentStartTime = null; // Timestamp de início da sessão atual
+        let currentPausedTime = null; // Timestamp quando pausado
+        let currentSecondsAccumulated = 0; // Segundos acumulados antes da pausa
         let currentInterval = null;
         let isCurrentRunning = true;
         
         let editingIndex = -1;
         let currentSort = { field: 'examDate', direction: 'desc' };
         
-        // Variáveis para edição de sessão
         let editSessionData = null;
         let editSessionIndex = null;
         let editSessionOriginalData = null;
@@ -616,27 +641,6 @@
             return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
         }
         
-        function formatMinSec(s) {
-            const m = Math.floor(s / 60);
-            const sec = Math.round(s % 60);
-            if (m > 0) {
-                return `${m}m${sec}s`;
-            }
-            return `${sec}s`;
-        }
-        
-        function parseTimeToSeconds(timeStr) {
-            const parts = timeStr.split(':').map(Number);
-            if (parts.length === 3) {
-                return parts[0] * 3600 + parts[1] * 60 + parts[2];
-            } else if (parts.length === 2) {
-                return parts[0] * 60 + parts[1];
-            } else if (parts.length === 1) {
-                return parts[0];
-            }
-            return 0;
-        }
-
         function formatTimeShort(s) {
             if (s < 60) return `${s}s`;
             const m = Math.floor(s / 60);
@@ -647,30 +651,107 @@
             return `${h}h ${restMin}m${sec > 0 ? ` ${sec}s` : ''}`;
         }
 
+        function getCurrentTimeFormatted() {
+            const now = new Date();
+            return `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+        }
+
+        function formatTimestamp(ts) {
+            if (!ts) return '-';
+            const d = new Date(ts);
+            return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+        }
+
+        // ============================================
+        // CRONÔMETRO PRECISO COM TIMESTAMP
+        // ============================================
         function updateTotalDisplay() { 
             document.getElementById('total-timer-display').textContent = formatTime(totalSeconds); 
         }
-        function updateCurrentDisplay() { 
-            document.getElementById('current-timer-display').textContent = formatTime(currentSeconds); 
+
+        function updateCurrentDisplay() {
+            let elapsed = currentSecondsAccumulated;
+            if (isCurrentRunning && currentStartTime) {
+                elapsed += (Date.now() - currentStartTime) / 1000;
+            }
+            document.getElementById('current-timer-display').textContent = formatTime(Math.floor(elapsed));
+            updateTimerStatus();
         }
-        
+
+        function updateTimerStatus() {
+            const statusEl = document.getElementById('timer-status');
+            const tsEl = document.getElementById('timer-timestamp');
+            if (isCurrentRunning && currentStartTime) {
+                statusEl.className = 'timer-status running';
+                statusEl.innerHTML = `🟢 Rodando desde ${formatTimestamp(currentStartTime)}`;
+            } else if (!isCurrentRunning && currentStartTime) {
+                statusEl.className = 'timer-status paused';
+                statusEl.innerHTML = `⏸️ Pausado (iniciado ${formatTimestamp(currentStartTime)})`;
+            } else {
+                statusEl.className = 'timer-status paused';
+                statusEl.innerHTML = '⏸️ Parado';
+            }
+        }
+
         function startCurrentTimer() {
-            if(currentInterval) clearInterval(currentInterval);
+            if (currentInterval) clearInterval(currentInterval);
+            currentStartTime = Date.now();
+            isCurrentRunning = true;
             currentInterval = setInterval(() => {
-                if(isCurrentRunning) {
-                    currentSeconds++;
-                    updateCurrentDisplay();
-                }
-            }, 1000);
+                updateCurrentDisplay();
+            }, 100);
+            updateCurrentDisplay();
         }
+
         function togglePauseCurrentTimer() {
-            isCurrentRunning = !isCurrentRunning;
-            document.getElementById('btn-pause-current').textContent = isCurrentRunning ? '⏸ Pausar' : '▶ Retomar';
-            document.getElementById('timer-box').classList.toggle('paused', !isCurrentRunning);
+            if (isCurrentRunning) {
+                // Pausar
+                if (currentStartTime) {
+                    currentSecondsAccumulated += (Date.now() - currentStartTime) / 1000;
+                }
+                currentStartTime = null;
+                isCurrentRunning = false;
+                document.getElementById('btn-pause-current').textContent = '▶ Retomar';
+                document.getElementById('timer-box').classList.add('paused');
+            } else {
+                // Retomar
+                currentStartTime = Date.now();
+                isCurrentRunning = true;
+                document.getElementById('btn-pause-current').textContent = '⏸ Pausar';
+                document.getElementById('timer-box').classList.remove('paused');
+            }
+            updateCurrentDisplay();
         }
+
         function resetCurrentTimer() {
-            currentSeconds = 0; updateCurrentDisplay();
-            if(!isCurrentRunning) togglePauseCurrentTimer();
+            if (confirm('Reiniciar cronômetro do laudo atual?')) {
+                currentStartTime = null;
+                currentSecondsAccumulated = 0;
+                isCurrentRunning = true;
+                document.getElementById('btn-pause-current').textContent = '⏸ Pausar';
+                document.getElementById('timer-box').classList.remove('paused');
+                if (currentInterval) clearInterval(currentInterval);
+                startCurrentTimer();
+                showNotification('⏱️ Cronômetro reiniciado!', 'warning');
+            }
+        }
+
+        function getCurrentElapsedSeconds() {
+            let elapsed = currentSecondsAccumulated;
+            if (isCurrentRunning && currentStartTime) {
+                elapsed += (Date.now() - currentStartTime) / 1000;
+            }
+            return Math.floor(elapsed);
+        }
+
+        function resetCurrentTimerAfterCommit() {
+            currentStartTime = null;
+            currentSecondsAccumulated = 0;
+            isCurrentRunning = true;
+            document.getElementById('btn-pause-current').textContent = '⏸ Pausar';
+            document.getElementById('timer-box').classList.remove('paused');
+            if (currentInterval) clearInterval(currentInterval);
+            startCurrentTimer();
         }
 
         function showNotification(msg, type = 'success') {
@@ -806,7 +887,7 @@
             if (!atividade) { showNotification("Selecione a ATIVIDADE!", "error"); return; }
             if (!segmento) { showNotification("Selecione o SEGMENTO!", "error"); return; }
             
-            const tempoGasto = currentSeconds;
+            const tempoGasto = getCurrentElapsedSeconds();
             if(tempoGasto < 1) { showNotification("Tempo insuficiente!", "warning"); return; }
             
             totalSeconds += tempoGasto;
@@ -816,13 +897,16 @@
             if (!dadosApp.tempos[data]) dadosApp.tempos[data] = [];
             
             const agora = new Date();
-            const horario = `${agora.getHours().toString().padStart(2,'0')}:${agora.getMinutes().toString().padStart(2,'0')}`;
+            const horarioFim = `${agora.getHours().toString().padStart(2,'0')}:${agora.getMinutes().toString().padStart(2,'0')}`;
+            const horarioInicio = formatTimestamp(currentStartTime) || horarioFim;
             
             const sessao = {
                 atividade: atividade,
                 segmento: segmento,
                 tempo: tempoGasto,
-                horario: horario,
+                horario: horarioFim,
+                horarioInicio: horarioInicio,
+                inicioTimestamp: currentStartTime || Date.now(),
                 timestamp: agora.toISOString()
             };
             
@@ -831,16 +915,15 @@
             if (!dadosApp.sessoes[data]) dadosApp.sessoes[data] = [];
             dadosApp.sessoes[data].push(sessao);
             
-            showNotification(`✅ Sessão de ${formatTime(tempoGasto)} salva!`);
+            showNotification(`✅ Sessão de ${formatTime(tempoGasto)} salva! (Início: ${horarioInicio})`);
             document.getElementById('timer-atividade').value = "";
             document.getElementById('timer-segmentos').value = "";
-            resetCurrentTimer();
+            resetCurrentTimerAfterCommit();
             await salvarDados();
             atualizarGraficos();
             renderLogSessoes();
         }
 
-        // FUNÇÕES PARA EDITAR E REMOVER SESSÕES
         function editarSessao(data, index) {
             const sessoes = dadosApp.sessoes[data] || [];
             if (index < 0 || index >= sessoes.length) return;
@@ -851,11 +934,11 @@
             editSessionOriginalData = { ...sessao };
             
             document.getElementById('edit-session-data').value = data;
-            document.getElementById('edit-session-horario').value = sessao.horario || '00:00';
+            document.getElementById('edit-session-inicio').value = sessao.horarioInicio || '00:00';
+            document.getElementById('edit-session-horario-fim').value = sessao.horario || '00:00';
             document.getElementById('edit-session-atividade').value = sessao.atividade || '';
             document.getElementById('edit-session-segmento').value = sessao.segmento || '';
             
-            // Converter segundos para HH:MM:SS
             const horas = Math.floor(sessao.tempo / 3600);
             const minutos = Math.floor((sessao.tempo % 3600) / 60);
             const segundos = sessao.tempo % 60;
@@ -878,7 +961,8 @@
             e.preventDefault();
             
             const data = document.getElementById('edit-session-data').value;
-            const horario = document.getElementById('edit-session-horario').value;
+            const horarioInicio = document.getElementById('edit-session-inicio').value;
+            const horarioFim = document.getElementById('edit-session-horario-fim').value;
             const atividade = document.getElementById('edit-session-atividade').value;
             const segmento = document.getElementById('edit-session-segmento').value;
             
@@ -893,9 +977,7 @@
                 return;
             }
             
-            // Se a data foi alterada, precisamos mover a sessão
             if (data !== editSessionData) {
-                // Remover da data original
                 const sessoesOriginais = dadosApp.sessoes[editSessionData] || [];
                 sessoesOriginais.splice(editSessionIndex, 1);
                 if (sessoesOriginais.length === 0) {
@@ -904,7 +986,6 @@
                     dadosApp.sessoes[editSessionData] = sessoesOriginais;
                 }
                 
-                // Remover dos tempos da data original
                 const temposOriginais = dadosApp.tempos[editSessionData] || [];
                 const idxToRemove = temposOriginais.findIndex(t => 
                     t.horario === editSessionOriginalData.horario && 
@@ -921,15 +1002,21 @@
                     }
                 }
                 
-                // Adicionar na nova data
                 if (!dadosApp.sessoes[data]) dadosApp.sessoes[data] = [];
                 if (!dadosApp.tempos[data]) dadosApp.tempos[data] = [];
                 
-                const novaSessao = { atividade, segmento, tempo, horario };
+                const novaSessao = { 
+                    atividade, 
+                    segmento, 
+                    tempo, 
+                    horario: horarioFim,
+                    horarioInicio: horarioInicio,
+                    inicioTimestamp: new Date(data + 'T' + horarioInicio + ':00').getTime(),
+                    timestamp: new Date(data + 'T' + horarioFim + ':00').toISOString()
+                };
                 dadosApp.sessoes[data].push(novaSessao);
-                dadosApp.tempos[data].push({ ...novaSessao, timestamp: new Date().toISOString() });
+                dadosApp.tempos[data].push({ ...novaSessao });
                 
-                // Recalcular total do dia
                 if (data === hojeStr) {
                     const totalDia = dadosApp.tempos[data].reduce((acc, s) => acc + s.tempo, 0);
                     localStorage.setItem(`totalEstudoRM_${data}`, totalDia.toString());
@@ -941,15 +1028,20 @@
                 
                 showNotification("✅ Sessão movida com sucesso!");
             } else {
-                // Mesma data, apenas atualizar
                 const sessoes = dadosApp.sessoes[data] || [];
                 const tempos = dadosApp.tempos[data] || [];
                 
-                // Atualizar na lista de sessoes
-                sessoes[editSessionIndex] = { atividade, segmento, tempo, horario };
+                sessoes[editSessionIndex] = { 
+                    atividade, 
+                    segmento, 
+                    tempo, 
+                    horario: horarioFim,
+                    horarioInicio: horarioInicio,
+                    inicioTimestamp: new Date(data + 'T' + horarioInicio + ':00').getTime(),
+                    timestamp: new Date(data + 'T' + horarioFim + ':00').toISOString()
+                };
                 dadosApp.sessoes[data] = sessoes;
                 
-                // Atualizar nos tempos
                 const idxToUpdate = tempos.findIndex(t => 
                     t.horario === editSessionOriginalData.horario && 
                     t.atividade === editSessionOriginalData.atividade &&
@@ -958,13 +1050,15 @@
                 );
                 if (idxToUpdate !== -1) {
                     tempos[idxToUpdate] = { 
-                        atividade, segmento, tempo, horario,
-                        timestamp: new Date().toISOString()
+                        atividade, segmento, tempo, 
+                        horario: horarioFim,
+                        horarioInicio: horarioInicio,
+                        inicioTimestamp: new Date(data + 'T' + horarioInicio + ':00').getTime(),
+                        timestamp: new Date(data + 'T' + horarioFim + ':00').toISOString()
                     };
                     dadosApp.tempos[data] = tempos;
                 }
                 
-                // Recalcular total do dia
                 if (data === hojeStr) {
                     const totalDia = tempos.reduce((acc, s) => acc + s.tempo, 0);
                     localStorage.setItem(`totalEstudoRM_${data}`, totalDia.toString());
@@ -993,7 +1087,6 @@
             
             const sessaoRemovida = sessoes[index];
             
-            // Remover da lista de sessoes
             sessoes.splice(index, 1);
             if (sessoes.length === 0) {
                 delete dadosApp.sessoes[data];
@@ -1001,7 +1094,6 @@
                 dadosApp.sessoes[data] = sessoes;
             }
             
-            // Remover dos tempos
             const idxToRemove = tempos.findIndex(t => 
                 t.horario === sessaoRemovida.horario && 
                 t.atividade === sessaoRemovida.atividade &&
@@ -1017,7 +1109,6 @@
                 }
             }
             
-            // Recalcular total do dia
             if (data === hojeStr) {
                 const totalDia = tempos.reduce((acc, s) => acc + s.tempo, 0);
                 localStorage.setItem(`totalEstudoRM_${data}`, totalDia.toString());
@@ -1052,10 +1143,12 @@
                 const nomeAtv = nomesAtividades[s.atividade] || s.atividade;
                 const nomeSeg = segmentosRM[s.segmento] || s.segmento;
                 const tempoFormatado = formatTime(s.tempo);
+                const inicio = s.horarioInicio || '--:--';
                 return `
                     <div class="log-row">
                         <span><span class="label-mobile">Data</span> ${data.split('-').reverse().join('/')}</span>
-                        <span><span class="label-mobile">Horário</span> ${s.horario}</span>
+                        <span><span class="label-mobile">Fim</span> ${s.horario}</span>
+                        <span class="inicio"><span class="label-mobile">Início</span> ${inicio}</span>
                         <span><span class="label-mobile">Atividade</span> ${nomeAtv}</span>
                         <span><span class="label-mobile">Segmento</span> ${nomeSeg}</span>
                         <span class="tempo"><span class="label-mobile">Tempo</span> ${tempoFormatado}</span>
